@@ -10,86 +10,84 @@ try:
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     sheet = client.open("Vicku_khata data").sheet1
-except Exception as e:
-    st.error("Sheet link fail!")
+except:
+    st.error("Sheet Connect Nahi Hui!")
 
 st.set_page_config(page_title="Vicky Khata", layout="centered")
 
-# --- KADAK CSS (FORCED GRID) ---
+# --- CUSTOM CSS FOR REAL GRID ---
 st.markdown("""
     <style>
-    /* Sabhi buttons ko dabba mein fit karne ke liye */
-    .main-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        width: 100%;
-    }
+    /* Buttons ko bada aur touch-friendly banane ke liye */
     div.stButton > button {
         width: 100% !important;
-        height: 60px !important;
+        height: 55px !important;
         border-radius: 10px !important;
-        border: 2px solid #4CAF50 !important;
-        background-color: white !important;
-        color: black !important;
         font-weight: bold !important;
+        border: 2px solid #4CAF50 !important;
+        margin-bottom: -10px;
     }
-    /* Mobile fix for sidebar */
-    [data-testid="stSidebarNav"] { display: block !important; }
+    /* Mobile screen padding fix */
+    .main .block-container { padding: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 if 'choice' not in st.session_state: st.session_state.choice = 'None'
 
-# Sidebar
-menu = st.sidebar.radio("Main Menu", ["💰 Khata App", "🏠 Home"])
+st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
 
-if menu == "💰 Khata App":
-    st.markdown("<h2 style='text-align: center;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
-    
-    # Grid Buttons - Ek line mein 2 buttons
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("➕ Add"): st.session_state.choice = 'add'
-        if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
-        if st.button("🗑️ Delete"): st.session_state.choice = 'del'
-    with col2:
-        if st.button("🤝 Settle"): st.session_state.choice = 'set'
-        if st.button("🔍 Search"): st.session_state.choice = 'src'
-        if st.button("📊 Report"): st.session_state.choice = 'rep'
+# --- 2x2 TABLE GRID (No more out of screen) ---
+# Row 1
+c1, c2 = st.columns(2)
+with c1:
+    if st.button("➕ Add"): st.session_state.choice = 'add'
+with c2:
+    if st.button("🤝 Settle"): st.session_state.choice = 'set'
 
-    st.divider()
-    val = st.session_state.choice
+# Row 2
+c3, c4 = st.columns(2)
+with c3:
+    if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
+with c4:
+    if st.button("📊 Report"): st.session_state.choice = 'rep'
 
-    # Fetch Data
-    data = sheet.get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
+# Niche choti buttons for extra tasks
+c5, c6 = st.columns(2)
+with c5:
+    if st.button("🔍 Search"): st.session_state.choice = 'src'
+with c6:
+    if st.button("🗑️ Delete"): st.session_state.choice = 'del'
 
-    if val == 'add':
-        with st.form("a"):
-            c = st.selectbox("Kya?", ["Khana", "Petrol", "Udhar", "Other"])
-            a = st.number_input("Amount", 0.0)
-            n = st.text_input("Note")
-            if st.form_submit_button("SAVE"):
-                sheet.append_row([datetime.now().strftime("%Y-%m-%d"), c, a, n, "Pending" if c=="Udhar" else "N/A"])
-                st.success("Done!"); st.rerun()
+st.divider()
 
-    elif val == 'rep':
-        st.subheader("💰 Report")
-        if not df.empty:
-            df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            # Category wise Total
-            cats = df.groupby('Category')['Amount'].sum()
-            for k, v in cats.items():
-                st.write(f"🔹 **{k}:** ₹{v}")
-            st.markdown(f"## **Total: ₹{df['Amount'].sum()}**")
-            
-    elif val == 'hisab':
-        st.dataframe(df, use_container_width=True)
+# --- LOGIC ---
+val = st.session_state.choice
+data = sheet.get_all_values()
+df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
 
-    elif val == 'set':
-        st.write("Udhar settle option yahan aayega...")
+if val == 'add':
+    with st.form("a", clear_on_submit=True):
+        cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Other"])
+        amt = st.number_input("Amount", 0.0)
+        note = st.text_input("Note")
+        if st.form_submit_button("SAVE"):
+            if amt > 0:
+                sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
+                st.success("Save Ho Gaya!"); st.rerun()
 
-elif menu == "🏠 Home":
-    st.title("Welcome Bhai!")
-    
+elif val == 'rep':
+    if not df.empty:
+        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
+        st.markdown(f"## **Total: ₹{df['Amount'].sum()}**")
+        summary = df.groupby('Category')['Amount'].sum()
+        for k, v in summary.items():
+            if v > 0: st.write(f"🔹 {k}: ₹{v}")
+
+elif val == 'hisab':
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+elif val == 'del':
+    if len(data) > 1:
+        sheet.delete_rows(len(data))
+        st.warning("Last Entry Deleted!"); st.session_state.choice = 'None'; st.rerun()
+        
