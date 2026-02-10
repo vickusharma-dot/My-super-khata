@@ -9,7 +9,7 @@ creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"],
 client = gspread.authorize(creds)
 
 # Apni Sheet ka naam yahan likho (Jo tumne banayi thi)
-SHEET_NAME = "Vicku_Khata_Data" 
+SHEET_NAME = "Vicku_khata data" 
 sheet = client.open(SHEET_NAME).sheet1
 
 # --- CONFIG ---
