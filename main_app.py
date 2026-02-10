@@ -14,123 +14,135 @@ try:
 except Exception as e:
     st.error("❌ Sheet Connect Nahi Hui!")
 
-# --- CONFIG ---
-st.set_page_config(page_title="Vicky's Pro Khata", layout="centered")
+# --- APP CONFIG ---
+st.set_page_config(page_title="Vicky's Hub", layout="wide")
 
-# CSS for better buttons
-st.markdown("""<style> div.stButton > button { width: 100%; border-radius: 10px; height: 3em; background-color: #f0f2f6; font-weight: bold; } </style>""", unsafe_allow_html=True)
+# Custom CSS for Full Width Buttons
+st.markdown("""
+    <style>
+    div.stButton > button {
+        width: 100%;
+        border-radius: 12px;
+        height: 60px;
+        background-color: #F0F2F6;
+        font-size: 18px;
+        font-weight: bold;
+        border: 2px solid #4CAF50;
+        margin-bottom: 10px;
+    }
+    div.stButton > button:hover {
+        background-color: #4CAF50;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Sidebar for App Selection
-app_mode = st.sidebar.radio("Navigation", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
+# Navigation
+app_mode = st.sidebar.radio("Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
 if app_mode == "🏠 Home":
-    st.title("🏠 Vicky's Digital Hub")
-    st.info("Bhai, Khata chalane ke liye Sidebar se 'Khata App' select karo!")
+    st.title("🚀 Vicky's Digital Hub")
+    st.success("Bhai, sidebar se 'Khata App' chuno kaam shuru karne ke liye!")
 
 elif app_mode == "💰 Khata App":
-    st.title("💸 Vicky Khata (Full System)")
+    st.markdown("<h2 style='text-align: center;'>📊 VICKY KHATA SYSTEM</h2>", unsafe_allow_html=True)
     
-    # Fresh data fetch for all options
-    all_rows = sheet.get_all_values()
-    headers = [h.strip() for h in all_rows[0]] if all_rows else []
-    df = pd.DataFrame(all_rows[1:], columns=headers) if len(all_rows) > 1 else pd.DataFrame()
+    # Fresh Data Fetch
+    all_data = sheet.get_all_values()
+    headers = [h.strip() for h in all_data[0]] if all_data else []
+    df = pd.DataFrame(all_data[1:], columns=headers) if len(all_data) > 1 else pd.DataFrame()
 
-    # --- MAIN BUTTON MENU ---
+    # --- GRID BUTTONS (2 Columns, Full Width) ---
     col1, col2 = st.columns(2)
     
-    btn1 = col1.button("➕ 1. Naya Kharcha")
-    btn2 = col2.button("🤝 2. Udhar Settle")
-    btn3 = col1.button("📜 3. Pura Hisab")
-    btn4 = col2.button("🔍 4. Search")
-    btn5 = col1.button("🗑️ 5. Delete Last")
-    btn6 = col2.button("📊 6. Report & Total")
+    with col1:
+        if st.button("➕ 1. Naya Kharcha"): st.session_state.opt = '1'
+        if st.button("📜 3. Pura Hisab"): st.session_state.opt = '3'
+        if st.button("🗑️ 5. Delete Last"): st.session_state.opt = '5'
+        
+    with col2:
+        if st.button("🤝 2. Udhar Settle"): st.session_state.opt = '2'
+        if st.button("🔍 4. Search"): st.session_state.opt = '4'
+        if st.button("📊 6. Report & Total"): st.session_state.opt = '6'
 
     st.divider()
 
-    # --- LOGIC FOR EACH OPTION ---
-    
-    # 1. ADD ENTRY
-    if btn1 or st.session_state.get('active_opt') == 'add':
-        st.session_state.active_opt = 'add'
-        st.subheader("📝 Naya Kharcha Add Karein")
-        with st.form("add_form", clear_on_submit=True):
+    # Current Selection Logic
+    opt = st.session_state.get('opt', None)
+
+    # 1. ADD
+    if opt == '1':
+        st.subheader("📝 Naya Kharcha Entry")
+        with st.form("add_form"):
             c1, c2 = st.columns(2)
             cat = c1.selectbox("Category:", ["Khana", "Safar", "Petrol", "Party", "Udhar", "Shopping", "Recharge", "Other"])
             amt = c2.number_input("Amount (₹):", min_value=0.0)
             note = st.text_input("Note (Kiske liye?):")
-            if st.form_submit_button("SAVE TO SHEET"):
+            if st.form_submit_button("💾 Save To Sheet"):
                 if amt > 0:
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     sheet.append_row([now, cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
-                    st.success("✅ Save ho gaya!")
+                    st.success("Entry Saved!")
                     st.rerun()
 
-    # 2. SETTLE UDHAR
-    if btn2 or st.session_state.get('active_opt') == 'settle':
-        st.session_state.active_opt = 'settle'
+    # 2. SETTLE (PARTIAL)
+    elif opt == '2':
         st.subheader("🤝 Udhar Settle Karein")
         if not df.empty and 'Status' in df.columns:
             pending = df[df['Status'].str.strip() == 'Pending'].copy()
             if not pending.empty:
-                pending['display'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
-                pick = st.selectbox("Kiska udhar kam karna hai?", pending['display'].tolist())
-                pay = st.number_input("Kitne paise mile? (₹):", min_value=0.0)
-                if st.button("SETTLE NOW"):
-                    row_data = pending[pending['display'] == pick].iloc[0]
-                    cell = sheet.find(row_date := row_data['Date'])
-                    balance = float(row_data['Amount']) - pay
-                    if balance <= 0:
+                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
+                pick = st.selectbox("Kiska hisab karna hai?", pending['disp'].tolist())
+                received = st.number_input("Kitne paise mile?", min_value=0.0)
+                if st.button("Confirm Settle"):
+                    row_info = pending[pending['disp'] == pick].iloc[0]
+                    cell = sheet.find(row_info['Date'])
+                    rem = float(row_info['Amount']) - received
+                    if rem <= 0:
                         sheet.update_cell(cell.row, 5, "Paid")
                         sheet.update_cell(cell.row, 3, 0)
-                        st.success("✅ Pura Udhar Clear!")
+                        st.success("Hisaab Pura Clear!")
                     else:
-                        sheet.update_cell(cell.row, 3, balance)
-                        st.warning(f"✅ ₹{pay} kam hue. Ab ₹{balance} baaki hain.")
+                        sheet.update_cell(cell.row, 3, rem)
+                        st.warning(f"₹{rem} abhi bhi baaki hain.")
                     st.rerun()
-            else: st.write("Koi pending udhar nahi hai.")
+            else: st.info("Koi udhar pending nahi hai.")
 
     # 3. HISTORY
-    if btn3 or st.session_state.get('active_opt') == 'hist':
-        st.session_state.active_opt = 'hist'
+    elif opt == '3':
         st.subheader("📜 Sabhi Transactions")
         if not df.empty: st.dataframe(df, use_container_width=True, hide_index=True)
 
     # 4. SEARCH
-    if btn4 or st.session_state.get('active_opt') == 'search':
-        st.session_state.active_opt = 'search'
-        st.subheader("🔍 Khojein (Search)")
+    elif opt == '4':
+        st.subheader("🔍 Search")
         q = st.text_input("Kya dhundna hai?")
         if q and not df.empty:
             res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
             st.dataframe(res, use_container_width=True)
 
     # 5. DELETE
-    if btn5:
-        if len(all_rows) > 1:
-            sheet.delete_rows(len(all_rows))
-            st.error("🗑️ Aakhri entry delete ho gayi!")
+    elif opt == '5':
+        if len(all_data) > 1:
+            sheet.delete_rows(len(all_data))
+            st.error("Aakhri line delete ho gayi!")
+            st.session_state.opt = None
             st.rerun()
 
-    # 6. REPORT & TOTAL
-    if btn6 or st.session_state.get('active_opt') == 'report':
-        st.session_state.active_opt = 'report'
-        st.subheader("📊 Category-wise Hisab")
+    # 6. REPORT (SIMPLE TEXT)
+    elif opt == '6':
+        st.subheader("📊 Category-wise Summary")
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
+            summary = df.groupby('Category')['Amount'].sum()
             
-            # Grouping for report
-            summary = df.groupby('Category')['Amount'].sum().reset_index()
-            
-            # Simple Display
-            for _, row in summary.iterrows():
-                st.write(f"🔹 **{row['Category']}:** ₹{row['Amount']}")
+            for category, total in summary.items():
+                if total > 0:
+                    st.markdown(f"✅ **{category}:** ₹{total}")
             
             st.divider()
-            st.markdown(f"## **💰 Kul Kharcha: ₹{df['Amount'].sum()}**")
-        else:
-            st.write("Abhi koi data nahi hai.")
+            st.markdown(f"<h2 style='color: #4CAF50;'>💰 Kul Total Kharcha: ₹{df['Amount'].sum()}</h2>", unsafe_allow_html=True)
 
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
-    st.warning("Ye abhi band hai. 🚧")
-    
+    st.info("Coming Soon...")
