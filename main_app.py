@@ -9,109 +9,114 @@ try:
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
-    
-    # JO NAAM TUNE BATAYA: Vicku_khata data
     SHEET_NAME = "Vicku_khata data" 
     sheet = client.open(SHEET_NAME).sheet1
 except Exception as e:
-    st.error(f"❌ Connection Error: {e}")
-    st.info("Bhai, check karo ki Google Sheet ka naam 'Vicku_khata data' hi hai na? Aur tune Service Account email ko Share kiya hai?")
+    st.error(f"❌ Sheet Connection Error!")
 
 # --- CONFIG ---
-st.set_page_config(page_title="Vicky's Cloud Khata", layout="wide")
+st.set_page_config(page_title="Vicky's Hub", layout="wide")
 CATEGORIES = ["Khana", "Safar", "Petrol", "Party", "Udhar", "Shopping", "Recharge", "Other"]
 
-# --- SIDEBAR ---
-st.sidebar.title("📱 Vicky's App Store")
-selected_app = st.sidebar.selectbox("Chuno:", ["💰 Khata App", "🏧 Digital ATM"])
+# --- APP UI ---
+st.markdown("<h1 style='text-align: center; color: #4CAF50;'>💰 VICKY DIGITAL KHATA</h1>", unsafe_allow_html=True)
+st.divider()
 
-if selected_app == "💰 Khata App":
-    st.title("💸 Digital Khata (Google Sheets)")
+# Main Menu in Tabs
+tab1, tab2, tab3 = st.tabs(["➕ Nayi Entry", "📜 Pura Hisab & Khoj", "📊 Report & Summary"])
+
+# --- TAB 1: ADD & SETTLE ---
+with tab1:
+    col1, col2 = st.columns(2)
     
-    # 1 se 9 tak ke saare options yahan tabs mein hain
-    tab1, tab2, tab3, tab4 = st.tabs(["📝 Entry & Udhar", "📜 History & Search", "📊 Reports", "💸 Budget"])
-
-    # --- TAB 1: ADD & SETTLE ---
-    with tab1:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("1. Kharcha Add Karein")
-            cat = st.selectbox("Category:", CATEGORIES)
-            amt = st.number_input("Amount (₹):", min_value=0.0, step=10.0)
-            note = st.text_input("Note (Kiske liye?):")
-            if st.button("Save to Cloud"):
+    with col1:
+        st.markdown("### **📥 Naya Kharcha Add Karein**")
+        cat = st.selectbox("Category Chuno:", CATEGORIES)
+        amt = st.number_input("Kitne Paise (₹):", min_value=0.0, step=10.0)
+        note = st.text_input("Kiske liye? (Note):")
+        
+        if st.button("💾 CLOUD ME SAVE KAREIN", use_container_width=True):
+            if amt > 0:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Sheet columns: Date, Category, Amount, Note, Status
                 sheet.append_row([now, cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
-                st.success("✅ Google Sheet mein save ho gaya!")
-
-        with col2:
-            st.subheader("3. Udhar Settle")
-            try:
-                data_records = sheet.get_all_records()
-                if data_records:
-                    df_udhar = pd.DataFrame(data_records)
-                    if 'Status' in df_udhar.columns:
-                        pending = df_udhar[df_udhar['Status'] == 'Pending']
-                        if not pending.empty:
-                            to_settle = st.selectbox("Kiska udhar settle karna hai?", pending['Note'].tolist())
-                            if st.button("Mark as Paid"):
-                                cell = sheet.find(to_settle)
-                                sheet.update_cell(cell.row, 5, "Paid")
-                                sheet.update_cell(cell.row, 3, 0) # Udhar settle matlab 0 kharcha bacha
-                                st.success(f"✅ {to_settle} ka udhar settle ho gaya!")
-                                st.rerun()
-                        else: st.write("Sab udhar cleared hain! ✅")
-                else: st.write("Abhi koi data nahi hai.")
-            except: st.write("Udhar check karne ke liye pehle kuch data dalo.")
-
-    # --- TAB 2: HISTORY & SEARCH ---
-    with tab2:
-        st.subheader("2. Pura Hisab & 6. Search")
-        try:
-            raw_data = sheet.get_all_records()
-            if raw_data:
-                df = pd.DataFrame(raw_data)
-                search = st.text_input("🔍 Dhundo (Note ya Category likho):")
-                if search:
-                    df = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)]
-                st.dataframe(df, use_container_width=True)
-                
-                if st.button("5. Entry Delete Karein (Aakhri wali)"):
-                    sheet.delete_rows(len(sheet.get_all_values()))
-                    st.warning("🗑️ Aakhri entry hata di gayi!")
-                    st.rerun()
+                st.success(f"✅ ₹{amt} {cat} mein save ho gaye!")
+                st.rerun()
             else:
-                st.info("Abhi history khali hai.")
-        except: st.error("Data load nahi ho pa raha.")
+                st.error("Bhai, 0 se zyada amount dalo!")
 
-    # --- TAB 3: SUMMARY & MONTHLY ---
-    with tab3:
-        st.subheader("4. Summary & 7. Monthly Report")
+    with col2:
+        st.markdown("### **🤝 Udhar Settle Karein**")
         try:
-            if raw_data:
-                df_rep = pd.DataFrame(raw_data)
-                df_rep['Amount'] = pd.to_numeric(df_rep['Amount'])
-                st.write(f"### 💰 Total Kharcha: ₹{df_rep['Amount'].sum()}")
-                
-                # Category Chart
-                cat_sum = df_rep.groupby('Category')['Amount'].sum()
-                st.bar_chart(cat_sum)
-                
-                # Monthly Logic
-                df_rep['Month'] = df_rep['Date'].str[:7] # YYYY-MM nikalne ke liye
-                st.write("### 📅 Monthly Hisab:")
-                st.table(df_rep.groupby('Month')['Amount'].sum())
-        except: st.write("Report dikhane ke liye data kam hai.")
+            all_data = sheet.get_all_records()
+            if all_data:
+                df_u = pd.DataFrame(all_data)
+                if 'Status' in df_u.columns:
+                    pending_list = df_u[df_u['Status'] == 'Pending']
+                    if not pending_list.empty:
+                        st.info(f"Abhi total {len(pending_list)} udhar baaki hain.")
+                        selected_u = st.selectbox("Kiska paisa mil gaya?", pending_list['Note'].tolist())
+                        
+                        if st.button("✅ MARK AS PAID", use_container_width=True):
+                            # Sheet mein dhundo aur update karo
+                            cell = sheet.find(selected_u)
+                            sheet.update_cell(cell.row, 5, "Paid")
+                            sheet.update_cell(cell.row, 3, 0) # Balance 0 kar diya
+                            st.success(f"Bhai, {selected_u} ka hisab clear!")
+                            st.rerun()
+                    else:
+                        st.write("Sab udhar clear hain! Mast raho. 😎")
+        except:
+            st.write("Abhi koi pending udhar nahi hai.")
 
-    # --- TAB 4: BUDGET ---
-    with tab4:
-        st.subheader("8. Monthly Budget Set Karein")
-        b_val = st.number_input("Budget (₹):", value=0.0)
-        if st.button("Set Budget"):
-            st.success(f"✅ Budget ₹{b_val} set ho gaya! (App iska dhyan rakhegi)")
+# --- TAB 2: HISTORY & SEARCH ---
+with tab2:
+    st.markdown("### **🔍 Pura Hisab aur Search**")
+    try:
+        raw_data = sheet.get_all_records()
+        if raw_data:
+            df = pd.DataFrame(raw_data)
+            
+            # Search Box
+            search = st.text_input("Kuch bhi likh kar dhundo (Note ya Category):")
+            if search:
+                df = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)]
+            
+            # Display Table
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            if st.button("🗑️ Aakhri Entry Delete Karein"):
+                sheet.delete_rows(len(sheet.get_all_values()))
+                st.warning("Aakhri line sheet se hata di gayi!")
+                st.rerun()
+        else:
+            st.info("Abhi sheet khali hai, pehli entry dalo!")
+    except:
+        st.error("Data load nahi ho raha.")
 
-else:
-    st.title("🏧 Digital ATM")
-    st.warning("Bhai ne bola abhi side mein rakhne ka! Jab bolo tab chalu kar denge. 😎")
-    
+# --- TAB 3: REPORTS ---
+with tab3:
+    st.markdown("### **📊 Kharcha Summary Report**")
+    try:
+        if raw_data:
+            df_rep = pd.DataFrame(raw_data)
+            df_rep['Amount'] = pd.to_numeric(df_rep['Amount'])
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                total = df_rep['Amount'].sum()
+                st.metric("KUL KHARCHA", f"₹{total}")
+            
+            with col_b:
+                st.write("**Category ke hisab se kharcha:**")
+                st.bar_chart(df_rep.groupby('Category')['Amount'].sum())
+                
+            st.markdown("---")
+            st.write("**📅 Mahine ka Hisab:**")
+            df_rep['Month'] = df_rep['Date'].str[:7]
+            st.table(df_rep.groupby('Month')['Amount'].sum())
+    except:
+        st.write("Report dikhane ke liye aur entries chahiye.")
+
+# Sidebar hide/show
+st.sidebar.info(f"Logged in: {SHEET_NAME}")
