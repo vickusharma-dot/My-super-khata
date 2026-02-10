@@ -1,80 +1,165 @@
 import streamlit as st
 import json
 import os
+from datetime import datetime
 
-# --- PAGE SETTINGS ---
-st.set_page_config(page_title="Vicky's Hub", page_icon="🚀", layout="centered")
+# --- CONFIG ---
+st.set_page_config(page_title="Vicky's Pro Khata", layout="centered")
 
-# --- DATA FUNCTIONS (Khata Save/Load karne ke liye) ---
-def load_khata():
-    if os.path.exists("khata_data.json"):
-        with open("khata_data.json", "r") as f:
-            try:
-                return json.load(f)
-            except:
-                return []
+FILE_NAME = "khata_data.json"
+BUDGET_FILE = "budget.txt"
+CATEGORIES = ["Khana", "Safar", "Petrol", "Party", "Udhar", "Shopping", "Recharge", "Other"]
+
+# --- DATA FUNCTIONS (Termux Logic) ---
+def load_data():
+    if os.path.exists(FILE_NAME):
+        with open(FILE_NAME, "r") as f:
+            try: return json.load(f)
+            except: return []
     return []
 
-def save_khata(data):
-    with open("khata_data.json", "w") as f:
+def save_data(data):
+    with open(FILE_NAME, "w") as f:
         json.dump(data, f, indent=4)
 
-# --- SIDEBAR NAVIGATION ---
-st.sidebar.title("📱 Vicky's App Store")
-st.sidebar.markdown("---")
-app_mode = st.sidebar.selectbox("Kaunsa App Chalana Hai?", ["🏠 Home", "💰 Super Khata", "🏧 Digital ATM"])
+def get_budget():
+    if os.path.exists(BUDGET_FILE):
+        with open(BUDGET_FILE, "r") as f:
+            try: return float(f.read())
+            except: return 0
+    return 0
 
-# --- APP 1: HOME ---
-if app_mode == "🏠 Home":
-    st.title("🚀 Vicky's Digital Hub")
-    st.write("Welcome bhai! Ye tumhara apna personal app store hai.")
-    st.info("👈 Sidebar ka use karke app badlein.")
-    st.image("https://img.icons8.com/clouds/200/000000/smartphone-tablet.png")
+# --- UI APP START ---
+st.title("💸 Vicky's Pro Khata App")
 
-# --- APP 2: SUPER KHATA (Working) ---
-elif app_mode == "💰 Super Khata":
-    st.title("💰 Super Khata")
-    
-    tab1, tab2 = st.tabs(["➕ Naya Hisab", "📊 Pura Data"])
-    
-    with tab1:
-        with st.form("khata_form", clear_on_submit=True):
-            naam = st.text_input("Kiska Naam?")
-            item = st.text_input("Kis liye (Reason)?")
-            paisa = st.number_input("Amount (₹)", min_value=0)
-            submit = st.form_submit_button("Save Karein")
-            
-            if submit:
-                if naam and item:
-                    data = load_khata()
-                    data.append({"Naam": naam, "Item": item, "Amount": paisa})
-                    save_khata(data)
-                    st.success(f"✅ {naam} ka hisab save ho gaya!")
-                else:
-                    st.error("Bhai, naam aur item toh likho!")
+# SIDEBAR (For ATM & Navigation)
+menu = st.sidebar.radio("Main Menu", [
+    "1. Kharcha Add Karein", 
+    "2. Pura Hisab Dekhein", 
+    "3. Udhar Settle Karein", 
+    "4. Summary (Category-wise)", 
+    "5. Entry Delete Karein",
+    "6. Search Karein 🔍",
+    "7. Monthly Report 📅",
+    "8. Budget Set Karein 💸",
+    "🏧 Digital ATM (Under Construction)"
+])
 
-    with tab2:
-        st.subheader("📋 Sabka Hisab-Kitab")
-        data = load_khata()
-        if data:
-            st.table(data)
-            if st.button("Clear All Data"):
-                save_khata([])
-                st.rerun()
-        else:
-            st.write("Abhi koi entry nahi hai.")
+data = load_data()
 
-# --- APP 3: DIGITAL ATM (Under Construction) ---
-elif app_mode == "🏧 Digital ATM":
-    st.title("🏧 Digital ATM")
+# --- 1. ADD EXPENSE (The 1 to 9 Style) ---
+if menu == "1. Kharcha Add Karein":
+    st.subheader("➕ Naya Kharcha Likho")
     
-    st.warning("### 🚧 Work In Progress 🚧")
-    st.image("https://img.icons8.com/clouds/200/000000/maintenance.png")
-    st.subheader("Bhai, thoda sabr rakho!")
-    st.write("Digital ATM ka naya web-version abhi taiyaar ho raha hai. Vicky Bhai is par kaam kar rahe hain.")
+    cat = st.selectbox("Category Chuno:", CATEGORIES)
+    amount = st.number_input(f"{cat} par kitne paise lage?", min_value=0.0, step=10.0)
+    note = st.text_input("Koi note likhna hai? (e.g. Rahul ko diye)")
     
-    # Progress bar for effect
-    st.write("Development Progress:")
-    st.progress(45)
-    st.info("Jaldi hi yahan Deposit aur Withdraw ke buttons aayenge!")
-  
+    if st.button("Save Karein"):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        entry = {
+            "date": now,
+            "category": cat,
+            "amount": amount,
+            "original_amount": amount,
+            "note": note,
+            "status": "Pending" if cat == "Udhar" else "N/A"
+        }
+        data.append(entry)
+        save_data(data)
+        st.success(f"✅ {cat} ka kharcha save ho gaya!")
+        
+        # Budget Alert
+        budget = get_budget()
+        if budget > 0:
+            total_month = sum(e['amount'] for e in data if e['date'][:7] == now[:7])
+            if total_month > budget:
+                st.warning(f"⚠️ WARNING: Budget hil gaya! Kharcha: ₹{total_month} | Budget: ₹{budget}")
+
+# --- 2. SHOW HISTORY ---
+elif menu == "2. Pura Hisab Dekhein":
+    st.subheader("📜 Pichla Saara Hisab")
+    if data:
+        for i, e in enumerate(data):
+            st.write(f"{i+1}. **[{e['date']}]** {e['category']}: ₹{e['amount']} - {e['note']} {'['+e.get('status','')+']' if e['category']=='Udhar' else ''}")
+    else:
+        st.info("Abhi koi data nahi hai.")
+
+# --- 3. SETTLE UDHAR ---
+elif menu == "3. Udhar Settle Karein":
+    st.subheader("📢 Pending Udhar")
+    pending = [e for e in data if e['category'] == "Udhar" and e.get('status') == 'Pending']
+    
+    if not pending:
+        st.success("Chill maro! Koi udhar baki nahi hai.")
+    else:
+        for p in pending:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"👉 {p['note']} (Baki: ₹{p['amount']})")
+            with col2:
+                if st.button("Settle", key=p['date']):
+                    for d in data:
+                        if d['date'] == p['date']:
+                            d['status'] = 'Paid'
+                            d['amount'] = 0
+                    save_data(data)
+                    st.rerun()
+
+# --- 4. SUMMARY ---
+elif menu == "4. Summary (Category-wise)":
+    st.subheader("📊 Category Summary")
+    summary = {}
+    for e in data:
+        summary[e['category']] = summary.get(e['category'], 0) + e['amount']
+    
+    for c, t in summary.items():
+        st.write(f"🔹 {c}: ₹{t}")
+    st.divider()
+    st.write(f"**💰 Total Kharcha: ₹{sum(summary.values())}**")
+
+# --- 5. DELETE ENTRY ---
+elif menu == "5. Entry Delete Karein":
+    st.subheader("🗑️ Delete Entry")
+    if data:
+        entry_list = [f"{i}. {e['date']} - {e['category']} (₹{e['amount']})" for i, e in enumerate(data)]
+        to_delete = st.selectbox("Select entry to remove:", entry_list)
+        if st.button("Delete"):
+            idx = int(to_delete.split('.')[0])
+            data.pop(idx)
+            save_data(data)
+            st.success("Entry deleted!")
+            st.rerun()
+
+# --- 6. SEARCH ---
+elif menu == "6. Search Karein 🔍":
+    query = st.text_input("🔍 Kya dhundna hai?")
+    if query:
+        results = [e for e in data if query.lower() in e['note'].lower() or query.lower() in e['category'].lower()]
+        for r in results:
+            st.write(f"✅ {r['date']} | {r['category']} | ₹{r['amount']} | {r['note']}")
+
+# --- 7. MONTHLY REPORT ---
+elif menu == "7. Monthly Report 📅":
+    st.subheader("📅 Monthly Hisab")
+    reports = {}
+    for e in data:
+        m = e['date'][:7]
+        reports[m] = reports.get(m, 0) + e['amount']
+    for m, t in reports.items():
+        st.write(f"📅 {m} : ₹{t}")
+
+# --- 8. BUDGET SET ---
+elif menu == "8. Budget Set Karein 💸":
+    curr = get_budget()
+    st.write(f"Current Budget: ₹{curr}")
+    new_b = st.number_input("Naya Budget dalo:", min_value=0.0)
+    if st.button("Set Budget"):
+        with open(BUDGET_FILE, "w") as f:
+            f.write(str(new_b))
+        st.success("Budget set!")
+
+# --- ATM (STILL UNDER CONSTRUCTION) ---
+elif menu == "🏧 Digital ATM (Under Construction)":
+    st.warning("🚧 Kaam chal raha hai... Agle step mein ise bhi fix karenge!")
+    
