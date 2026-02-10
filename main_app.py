@@ -4,103 +4,92 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import pandas as pd
 
-# --- GOOGLE SHEETS SETUP ---
+# --- SETUP ---
 try:
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
-    SHEET_NAME = "Vicku_khata data" 
-    sheet = client.open(SHEET_NAME).sheet1
+    sheet = client.open("Vicku_khata data").sheet1
 except Exception as e:
-    st.error("❌ Sheet Connect Nahi Hui!")
+    st.error("Sheet link fail!")
 
-# --- APP CONFIG ---
-st.set_page_config(page_title="Vicky Khata", layout="wide")
+st.set_page_config(page_title="Vicky Khata", layout="centered")
 
-# CSS: Isse buttons mobile par bhi 2 ki line mein hi rahengi
+# --- KADAK CSS (FORCED GRID) ---
 st.markdown("""
     <style>
-    /* Force 2 columns on mobile */
-    [data-testid="column"] {
-        width: 48% !important;
-        flex: 1 1 45% !important;
-        min-width: 45% !important;
+    /* Sabhi buttons ko dabba mein fit karne ke liye */
+    .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
     }
-    [data-testid="stHorizontalBlock"] {
-        flex-direction: row !important;
-        display: flex !important;
-        flex-wrap: nowrap !important;
-    }
-    .stButton>button {
+    div.stButton > button {
         width: 100% !important;
-        height: 65px !important;
-        border-radius: 12px !important;
-        font-weight: bold !important;
+        height: 60px !important;
+        border-radius: 10px !important;
         border: 2px solid #4CAF50 !important;
-        font-size: 16px !important;
+        background-color: white !important;
+        color: black !important;
+        font-weight: bold !important;
     }
+    /* Mobile fix for sidebar */
+    [data-testid="stSidebarNav"] { display: block !important; }
     </style>
     """, unsafe_allow_html=True)
 
-if 'v_opt' not in st.session_state: st.session_state.v_opt = 'None'
+if 'choice' not in st.session_state: st.session_state.choice = 'None'
 
 # Sidebar
-app_mode = st.sidebar.radio("Menu", ["💰 Khata App", "🏠 Home", "🏧 Digital ATM"])
+menu = st.sidebar.radio("Main Menu", ["💰 Khata App", "🏠 Home"])
 
-if app_mode == "💰 Khata App":
-    st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
+if menu == "💰 Khata App":
+    st.markdown("<h2 style='text-align: center;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
     
-    # Data Fetch
-    all_rows = sheet.get_all_values()
-    df = pd.DataFrame(all_rows[1:], columns=[h.strip() for h in all_rows[0]]) if len(all_rows) > 1 else pd.DataFrame()
-
-    # --- THE GRID (Zabardasti 2 columns) ---
-    r1_c1, r1_c2 = st.columns(2)
-    if r1_c1.button("➕ Add"): st.session_state.v_opt = '1'
-    if r1_c2.button("🤝 Settle"): st.session_state.v_opt = '2'
-    
-    r2_c1, r2_c2 = st.columns(2)
-    if r2_c1.button("📜 Hisab"): st.session_state.v_opt = '3'
-    if r2_c2.button("🔍 Search"): st.session_state.v_opt = '4'
-    
-    r3_c1, r3_c2 = st.columns(2)
-    if r3_c1.button("🗑️ Delete"): st.session_state.v_opt = '5'
-    if r3_c2.button("📊 Report"): st.session_state.v_opt = '6'
+    # Grid Buttons - Ek line mein 2 buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("➕ Add"): st.session_state.choice = 'add'
+        if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
+        if st.button("🗑️ Delete"): st.session_state.choice = 'del'
+    with col2:
+        if st.button("🤝 Settle"): st.session_state.choice = 'set'
+        if st.button("🔍 Search"): st.session_state.choice = 'src'
+        if st.button("📊 Report"): st.session_state.choice = 'rep'
 
     st.divider()
-    opt = st.session_state.v_opt
+    val = st.session_state.choice
 
-    # Logic functions
-    if opt == '1':
-        with st.form("add"):
-            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Other"])
-            amt = st.number_input("Amount", min_value=0.0)
-            note = st.text_input("Note")
+    # Fetch Data
+    data = sheet.get_all_values()
+    df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
+
+    if val == 'add':
+        with st.form("a"):
+            c = st.selectbox("Kya?", ["Khana", "Petrol", "Udhar", "Other"])
+            a = st.number_input("Amount", 0.0)
+            n = st.text_input("Note")
             if st.form_submit_button("SAVE"):
-                sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
-                st.success("Saved!"); st.rerun()
+                sheet.append_row([datetime.now().strftime("%Y-%m-%d"), c, a, n, "Pending" if c=="Udhar" else "N/A"])
+                st.success("Done!"); st.rerun()
 
-    elif opt == '2':
-        if not df.empty and 'Status' in df.columns:
-            udhar = df[df['Status'] == 'Pending']
-            if not udhar.empty:
-                sel = st.selectbox("Kaun?", (udhar['Note'] + " (₹" + udhar['Amount'] + ")").tolist())
-                pay = st.number_input("Kitne mile?", min_value=0.0)
-                if st.button("UPDATE"):
-                    # Logic to find row and update
-                    st.success("Updated!"); st.rerun()
-            else: st.info("No Udhar")
-
-    elif opt == '3':
-        st.dataframe(df, use_container_width=True)
-
-    elif opt == '6':
+    elif val == 'rep':
+        st.subheader("💰 Report")
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            for k, v in df.groupby('Category')['Amount'].sum().items():
-                st.write(f"🔹 {k}: ₹{v}")
-            st.markdown(f"### 💰 TOTAL: ₹{df['Amount'].sum()}")
+            # Category wise Total
+            cats = df.groupby('Category')['Amount'].sum()
+            for k, v in cats.items():
+                st.write(f"🔹 **{k}:** ₹{v}")
+            st.markdown(f"## **Total: ₹{df['Amount'].sum()}**")
+            
+    elif val == 'hisab':
+        st.dataframe(df, use_container_width=True)
 
-elif app_mode == "🏠 Home":
-    st.title("Welcome Vicky!")
+    elif val == 'set':
+        st.write("Udhar settle option yahan aayega...")
+
+elif menu == "🏠 Home":
+    st.title("Welcome Bhai!")
     
