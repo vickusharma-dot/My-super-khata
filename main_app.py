@@ -20,59 +20,37 @@ except Exception as e:
     st.error(f"Sheet Connectivity Error: {e}")
 
 # --- 2. CONFIG & CUSTOM CSS ---
-st.set_page_config(page_title="Vicky Hub", layout="wide", page_icon="💰")  # Changed to 'wide' for better mobile horizontal buttons
+st.set_page_config(page_title="Vicky Hub", layout="wide", page_icon="💰")
 
-# Enhanced Custom CSS for perfect green buttons + mobile responsive horizontal layout
 st.markdown("""
     <style>
-    /* Main button styles */
-    .stButton > button {
-        border: 2px solid #28a745 !important;
-        border-radius: 12px !important;
+    /* BIG VIEW BUTTON - Full width & prominent */
+    .view-btn > button {
+        border: 3px solid #28a745 !important;
+        border-radius: 15px !important;
         color: #28a745 !important;
         background-color: white !important;
         font-weight: bold !important;
-        height: 2.8em !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        font-size: 1.3em !important;
+        height: 3.5em !important;
+        width: 100% !important;
+        margin: 1rem 0 !important;
     }
-    .stButton > button:hover {
+    .view-btn > button:hover {
         background-color: #28a745 !important;
         color: white !important;
+        transform: scale(1.02) !important;
     }
     
-    /* Column padding reduction for tighter horizontal fit */
-    [data-testid="column"] {
-        padding-left: 0.1rem !important;
-        padding-right: 0.1rem !important;
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.2rem !important;
-    }
-    
-    /* Mobile responsiveness: Shrink buttons & prevent stacking */
+    /* Mobile perfect */
     @media screen and (max-width: 768px) {
-        .stButton > button {
-            padding: 0.4rem 0.4rem !important;
-            font-size: 0.85rem !important;
-            border-radius: 10px !important;
-            height: 2.4em !important;
-        }
-        [data-testid="column"] {
-            padding-left: 0.05rem !important;
-            padding-right: 0.05rem !important;
+        .view-btn > button {
+            font-size: 1.1em !important;
+            height: 3.2em !important;
+            border-radius: 12px !important;
         }
     }
     
-    @media screen and (max-width: 480px) {
-        .stButton > button {
-            padding: 0.3rem 0.3rem !important;
-            font-size: 0.75rem !important;
-            height: 2.2em !important;
-        }
-    }
-    
-    /* General padding fix */
     .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -115,54 +93,25 @@ if st.sidebar.button("Logout 🚪", use_container_width=True):
 # --- 5. HOME PAGE ---
 if app_mode == "🏠 Home":
     st.title(f"Welcome, {user_logged_in.upper()}! ✨")
-    
-    st.success("""
-    💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!
-    """)
+    st.success("💡 Phone ki Home Screen par app install kar lo!")
+    st.info("👉 Sidebar se 'Khata App' chuno!")
 
-    st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
-
-    st.markdown("---")
-    
-    st.markdown("### 🌟 Support Vicky Hub")
-    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein! Aapka support hi meri taqat hai.")
-    
-    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app: https://vicky-khata.streamlit.app"
-    st.markdown(f"""
-        <a href="whatsapp://send?text={share_msg}" 
-           style="background-color: #25D366; color: white; padding: 12px 20px; 
-                  text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; width: 100%; text-align: center;">
-           📢 WhatsApp par Share Karein
-        </a>
-    """, unsafe_allow_html=True)
-
-# --- 6. KHATA APP (Fixed Horizontal Responsive Buttons) ---
+# --- 6. KHATA APP (SINGLE BIG VIEW BUTTON) ---
 elif app_mode == "💰 Khata App":
-    st.markdown("<h2 style='text-align: center;'>📊 VICKU KA KHATA</h2>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #28a745;'>📊 VICKU KA KHATA</h1>", unsafe_allow_html=True)
     
     if 'choice' not in st.session_state: 
         st.session_state.choice = 'None'
 
-    # FIXED: Horizontal buttons with columns, gap='small', use_container_width=True for mobile auto-adjust
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1], gap="small")
+    # BIG CENTERED VIEW BUTTON - Exactly like your screenshot
+    st.markdown("---")
+    st.markdown("<div style='text-align: center; margin: 2rem 0;'>", unsafe_allow_html=True)
     
-    with col1:
-        if st.button("➕ Add", use_container_width=True):
-            st.session_state.choice = 'add'
-    with col2:
-        if st.button("📜 Hisab", use_container_width=True):
-            st.session_state.choice = 'hisab'
-    with col3:
-        if st.button("🔍 Search", use_container_width=True):
-            st.session_state.choice = 'src'
-    with col4:
-        if st.button("🤝 Settle", use_container_width=True):
-            st.session_state.choice = 'set'
-    with col5:
-        if st.button("📊 Rep", use_container_width=True):
-            st.session_state.choice = 'rep'
-
-    st.divider()
+    if st.button("🔍 **VIEW HISAB**", key="big_view_btn", help="Apna pura hisab dekho!"):
+        st.session_state.choice = 'view'
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
 
     # Data Fetching
     all_rows = data_sheet.get_all_values()
@@ -174,64 +123,33 @@ elif app_mode == "💰 Khata App":
     else:
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status", "User"])
 
-    val = st.session_state.choice
-
-    if val == 'add':
-        with st.form("add_f", clear_on_submit=True):
-            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar Diya", "Party", "Shopping", "Other"])
-            amt = st.number_input("Amount", min_value=1.0)
-            note = st.text_input("Note")
-            if st.form_submit_button("SAVE", use_container_width=True):
-                status = "Pending" if cat == "Udhar Diya" else "N/A"
-                data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, status, user_logged_in])
-                st.success("Entry Saved!")
-                st.rerun()
-
-    elif val == 'src':
-        # Added basic Search functionality since button exists
-        st.subheader("🔍 Search")
-        search_term = st.text_input("Search in Notes or Category")
-        if search_term:
-            filtered = df[df['Note'].str.contains(search_term, case=False, na=False) | 
-                          df['Category'].str.contains(search_term, case=False, na=False)]
-            if not filtered.empty:
-                st.dataframe(filtered, use_container_width=True, hide_index=True)
-            else:
-                st.info("No results found.")
-        else:
-            st.info("Enter a search term above.")
-
-    elif val == 'hisab':
-        st.subheader("📜 Hisab")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-    elif val == 'set':
-        st.subheader("🤝 Settle Pending")
-        pending = df[df['Status'] == 'Pending'].copy()
-        if not pending.empty:
-            for i, row in pending.iterrows():
-                with st.expander(f"₹{row['Amount']} - {row['Note']}"):
-                    rec = st.number_input(f"Received?", 0.0, float(row['Amount']), key=f"rec_{i}")
-                    if st.button("Settle", key=f"btn_{i}", use_container_width=True):
-                        actual_idx = df.index[df.index == i].tolist()[0] + 2  # Sheet indexing
-                        total = float(row['Amount'])
-                        if rec >= total:
-                            data_sheet.update_cell(actual_idx, 5, "Paid ✅")
-                        else:
-                            data_sheet.update_cell(actual_idx, 5, f"Paid ₹{rec}")
-                            data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), "Udhar Diya", str(total - rec), f"{row['Note']} (Baki)", "Pending", user_logged_in])
-                        st.success("Updated!")
-                        st.rerun()
-        else: 
-            st.info("No pending udhar!")
-
-    elif val == 'rep':
-        st.subheader("📊 Report")
+    if st.session_state.choice == 'view':
+        st.markdown("<h2 style='text-align: center; color: #28a745;'>👀 **APNA PURA HISAB**</h2>", unsafe_allow_html=True)
+        
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            total_amount = df['Amount'].sum()
-            st.metric("TOTAL", f"₹{int(total_amount):,}")
+            total = df['Amount'].sum()
+            pending_df = df[df['Status'] == 'Pending']
+            pending_amt = pending_df['Amount'].sum() if not pending_df.empty else 0
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("💰 TOTAL", f"₹{int(total):,}")
+            col2.metric("⏳ UDHAR", f"₹{int(pending_amt):,}")
+            col3.metric("✅ PAID", f"₹{int(total-pending_amt):,}")
+            
+            st.divider()
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            st.subheader("📈 Category Chart")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
+            
+            if not pending_df.empty:
+                st.subheader("⚠️ PENDING ITEMS")
+                st.dataframe(pending_df, use_container_width=True, hide_index=True)
+            else:
+                st.success("🎉 Koi udhar nahi baki!")
+        else:
+            st.info("📝 Pehli entry add karne ke liye admin se bolo!")
 
 # --- 7. DIGITAL ATM ---
 elif app_mode == "🏧 Digital ATM":
