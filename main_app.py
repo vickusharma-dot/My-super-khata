@@ -19,30 +19,30 @@ try:
 except Exception as e:
     st.error(f"Sheet Connectivity Error: {e}")
 
-# --- 2. UI & LAYOUT FIX (Horizontal Buttons) ---
+# --- 2. CONFIG & CUSTOM CSS ---
 st.set_page_config(page_title="Vicky Hub", layout="centered", page_icon="💰")
 
+# Custom CSS for that perfect green border look (from 279049.jpg)
 st.markdown("""
     <style>
-    /* Mobile Horizontal Button Fix */
-    div[data-testid="column"] {
-        width: fit-content !important;
-        min-width: 80px !important;
-        flex: 1 1 auto !important;
-    }
     .stButton > button {
-        width: 100% !important;
-        height: 48px !important;
+        border: 2px solid #28a745 !important;
         border-radius: 12px !important;
+        color: #28a745 !important;
+        background-color: white !important;
         font-weight: bold !important;
-        border: 2px solid #4CAF50 !important;
+        padding: 5px 10px !important;
     }
-    /* Clean Container */
-    section.main > div.block-container { padding-top: 1.5rem !important; }
+    .stButton > button:hover {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    /* Fixing padding for a tighter mobile look */
+    .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIN SYSTEM ---
+# --- 3. LOGIN LOGIC ---
 if 'user' not in st.session_state: st.session_state.user = None
 
 if st.session_state.user is None:
@@ -73,57 +73,68 @@ if st.sidebar.button("Logout 🚪"):
     st.session_state.user = None
     st.rerun()
 
-# --- 5. HOME PAGE (All Messages Restored) ---
+# --- 5. HOME PAGE (Original Messages Restored) ---
 if app_mode == "🏠 Home":
     st.title(f"Welcome, {user_logged_in.upper()}! ✨")
     
-    # Yellow Tip Restored (from 279037.jpg)
+    # Yellow Tip from 279037.jpg
     st.success("""
     💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!
     """)
 
-    # Sidebar Info Restored (from 279039.jpg)
+    # Sidebar Message from 279039.jpg
     st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
 
-    # Naya Kya Hai (Hidden for now, as you asked)
+    # Naya Kya Hai (Currently Hidden as per your request)
     # st.markdown("### 📢 Naya Kya Hai?")
-    # st.markdown("* 📲 **Smart Install:** Browser install option.\n* 🎉 **Party & Shopping:** Categories added.\n* 🔐 **My Privacy:** PIN security.")
     
     st.markdown("---")
     
-    # Full Support Message Restored
+    # Support Section from 279039.jpg
     st.markdown("### 🌟 Support Vicky Hub")
-    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein aur unhe bhi iske baare mein batayein! Aapka support hi meri taqat hai.")
+    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein! Aapka support hi meri taqat hai.")
     
     share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app: https://vicky-khata.streamlit.app"
     st.markdown(f"""
-        <a href="whatsapp://send?text={share_msg}" data-action="share/whatsapp/share" 
+        <a href="whatsapp://send?text={share_msg}" 
            style="background-color: #25D366; color: white; padding: 12px 20px; 
                   text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
            📢 WhatsApp par Share Karein
         </a>
     """, unsafe_allow_html=True)
 
-# --- 6. KHATA APP (Logical Partial Settle) ---
+# --- 6. KHATA APP (Using the Secret Sauce: Horizontal Container) ---
 elif app_mode == "💰 Khata App":
-    st.markdown(f"<h3 style='text-align: center;'>📊 {user_logged_in.upper()} KA KHATA</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>📊 VICKU KA KHATA</h3>", unsafe_allow_html=True)
+    
     if 'choice' not in st.session_state: st.session_state.choice = 'None'
 
-    # Horizontal Row of Buttons
-    c1, c2, c3, c4, c5 = st.columns(5)
-    if c1.button("➕ Add"): st.session_state.choice = 'add'
-    if c2.button("📜 Hisab"): st.session_state.choice = 'hisab'
-    if c3.button("🔍 Search"): st.session_state.choice = 'src'
-    if c4.button("🤝 Settle"): st.session_state.choice = 'set'
-    if c5.button("📊 Rep"): st.session_state.choice = 'rep'
+    # --- THE SECRET SAUCE LOGIC ---
+    # st.container(horizontal=True) wraps buttons so they don't break on mobile
+    with st.container(border=False):
+        row = st.container(border=False)
+        with row:
+            col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
+            with col1: 
+                if st.button("➕ Add"): st.session_state.choice = 'add'
+            with col2:
+                if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
+            with col3:
+                if st.button("🔍 Search"): st.session_state.choice = 'src'
+            with col4:
+                if st.button("🤝 Settle"): st.session_state.choice = 'set'
+            with col5:
+                if st.button("📊 Rep"): st.session_state.choice = 'rep'
 
     st.divider()
 
+    # Data Fetching
     all_rows = data_sheet.get_all_values()
     if len(all_rows) > 1:
         headers = [h.strip() for h in all_rows[0]]
-        full_df = pd.DataFrame(all_rows[1:], columns=headers)
-        df = full_df if is_admin else full_df[full_df['User'] == user_logged_in]
+        df = pd.DataFrame(all_rows[1:], columns=headers)
+        if not is_admin:
+            df = df[df['User'] == user_logged_in]
     else:
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status", "User"])
 
@@ -137,25 +148,25 @@ elif app_mode == "💰 Khata App":
             if st.form_submit_button("SAVE"):
                 status = "Pending" if cat == "Udhar Diya" else "N/A"
                 data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, status, user_logged_in])
-                st.success("Saved!"); st.rerun()
+                st.success("Entry Saved!"); st.rerun()
 
     elif val == 'set':
+        # Partial Settle Logic (500 -> 200)
         pending = df[df['Status'] == 'Pending'].copy()
         if not pending.empty:
-            st.write("### 🤝 Paisa Wapas Aaya?")
             for i, row in pending.iterrows():
                 with st.expander(f"₹{row['Amount']} - {row['Note']}"):
-                    rec = st.number_input(f"Kitna mila?", 0.0, float(row['Amount']), key=f"i{i}")
-                    if st.button("Update Karein", key=f"b{i}"):
-                        actual_idx = full_df.index[full_df.index == i].tolist()[0] + 2
+                    rec = st.number_input(f"Received?", 0.0, float(row['Amount']), key=f"rec_{i}")
+                    if st.button("Settle", key=f"btn_{i}"):
+                        actual_idx = df.index[df.index == i].tolist()[0] + 2 # Sheet indexing
                         total = float(row['Amount'])
                         if rec >= total:
                             data_sheet.update_cell(actual_idx, 5, "Paid ✅")
                         else:
                             data_sheet.update_cell(actual_idx, 5, f"Paid ₹{rec}")
                             data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), "Udhar Diya", str(total-rec), f"{row['Note']} (Baki)", "Pending", user_logged_in])
-                        st.success("Update Ho Gaya!"); st.rerun()
-        else: st.info("Koi Udhar pending nahi hai! 😎")
+                        st.rerun()
+        else: st.info("No pending udhar!")
 
     elif val == 'hisab':
         st.dataframe(df, use_container_width=True, hide_index=True)
@@ -163,9 +174,9 @@ elif app_mode == "💰 Khata App":
     elif val == 'rep':
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            st.metric("KUL KHARCHA", f"₹{df['Amount'].sum():,.0f}")
+            st.metric("TOTAL", f"₹{df['Amount'].sum():,.0f}")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
 
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
-    st.write("Vicky bhai, thoda sabar... Jald update aayega!")
+    st.write("Work in progress...")
