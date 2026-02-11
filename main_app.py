@@ -159,4 +159,30 @@ elif app_mode == "💰 Khata App":
     elif val == 'del':
         st.subheader("🗑️ Entry Delete")
         if not df.empty:
-            df['del_opt'] = df['Date'] + " | " + df['Category'] + " | ₹" + df['
+            df['del_opt'] = df['Date'] + " | " + df['Category'] + " | ₹" + df['Amount']
+            to_del = st.selectbox("Kaunsi entry?", df['del_opt'].tolist())
+            if st.button("CONFIRM DELETE"):
+                sel_date = to_del.split(" | ")[0]
+                all_rows = sheet.get_all_values()
+                for idx, r in enumerate(all_rows):
+                    if r[0] == sel_date and r[5] == user_logged_in:
+                        sheet.delete_rows(idx+1)
+                        st.success("Deleted! 🗑️"); st.rerun()
+        else: st.info("Kuch nahi hai delete karne ko.")
+
+    elif val == 'rep':
+        if not df.empty and 'Amount' in df.columns:
+            df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
+            st.metric("Total Kharcha", f"₹{df['Amount'].sum():,.0f}")
+            st.bar_chart(df.groupby('Category')['Amount'].sum())
+        else:
+            st.warning("Report ke liye data nahi hai.")
+
+    elif val == 'src':
+        q = st.text_input("Search...")
+        if q and not df.empty:
+            res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
+            st.dataframe(res, use_container_width=True)
+
+elif app_mode == "🏧 Digital ATM":
+    st.write("Jald aa raha hai!")
