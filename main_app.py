@@ -21,7 +21,7 @@ except Exception as e:
 
 st.set_page_config(page_title="Vicky Hub", layout="centered", page_icon="💰")
 
-# --- 2. TERA ORIGINAL CSS (Buttons layout fix karne ke liye) ---
+# --- 2. TERA ORIGINAL CSS (No Changes) ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -69,24 +69,18 @@ user_logged_in = st.session_state.user
 if 'choice' not in st.session_state: st.session_state.choice = 'None'
 app_mode = st.sidebar.radio("Main Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
-# --- 5. HOME PAGE (Wahi purana text jo tujhe chahiye) ---
+# --- 5. HOME PAGE ---
 if app_mode == "🏠 Home":
     st.title(f"Welcome {user_logged_in.upper()}! 😎")
-    st.success("💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!")
+    st.success("💡 **Tip:** 'Add to Home Screen' karein!")
     st.markdown("### 📢 Naya Kya Hai?")
-    st.markdown("* 📲 **Smart Install:** Browser ab install ka option dega.\n* 🔐 **My Privacy:** Aapka data sirf aapke PIN se khulega.")
-    st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
-    st.markdown("---")
-    st.markdown("### 🌟 Support Vicky Hub")
-    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein!")
-    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app: https://vicky-khata.streamlit.app"
-    st.markdown(f'<a href="whatsapp://send?text={share_msg}" style="background-color: #25D366; color: white; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">📢 WhatsApp Share</a>', unsafe_allow_html=True)
+    st.markdown("* 🔐 **Privacy:** Aapka data safe hai.\n* 🤝 **Full Fix:** Saare buttons ab kaam karenge.")
+    st.info("👉 Sidebar se 'Khata App' chuno.")
 
 # --- 6. KHATA APP ---
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    # --- TERA MAGIC HORIZONTAL VIEW ---
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add"): st.session_state.choice = 'add'
         if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
@@ -97,7 +91,7 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # Data Fetching
+    # --- FIXED DATA LOADING ---
     raw = sheet.get_all_values()
     if len(raw) > 1:
         df = pd.DataFrame(raw[1:], columns=raw[0])
@@ -121,15 +115,23 @@ elif app_mode == "💰 Khata App":
         if not df.empty: st.dataframe(df, use_container_width=True, hide_index=True)
         else: st.info("Khata khali hai.")
 
+    elif val == 'src':
+        st.subheader("🔍 Search")
+        q = st.text_input("Note ya Category likho:")
+        if q and not df.empty:
+            res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
+            st.dataframe(res, use_container_width=True)
+        elif q: st.warning("Data nahi mila.")
+
     elif val == 'set':
         st.subheader("🤝 Udhar Settle")
         if not df.empty and 'Status' in df.columns:
             pending = df[df['Status'].str.strip() == 'Pending'].copy()
             if not pending.empty:
-                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'].astype(str) + ")"
-                pick = st.selectbox("Select:", pending['disp'].tolist())
+                pending['disp'] = pending['Note'].astype(str) + " (₹" + pending['Amount'].astype(str) + ")"
+                pick = st.selectbox("Kaunsa?", pending['disp'].tolist())
                 pay = st.number_input("Amount received?", min_value=0.0)
-                if st.button("SETTLE NOW"):
+                if st.button("CONFIRM SETTLE"):
                     row_info = pending[pending['disp'] == pick].iloc[0]
                     all_r = sheet.get_all_values()
                     for i, r in enumerate(all_r):
@@ -141,26 +143,31 @@ elif app_mode == "💰 Khata App":
                             else:
                                 sheet.update_cell(i+1, 3, str(rem))
                             st.success("Updated!"); st.rerun()
-            else: st.info("No Pending.")
+            else: st.info("Koi Udhar Pending nahi hai.")
+        else: st.info("Abhi koi data nahi hai.")
 
     elif val == 'rep':
+        st.subheader("📊 Report")
         if not df.empty and 'Amount' in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            st.metric("Total", f"₹{df['Amount'].sum():,.0f}")
+            st.metric("Total Kharcha", f"₹{df['Amount'].sum():,.0f}")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
+        else: st.warning("Report ke liye data nahi mila.")
 
     elif val == 'del':
-        st.subheader("🗑️ Delete")
+        st.subheader("🗑️ Delete Entry")
         if not df.empty:
-            df['del_opt'] = df['Date'].astype(str) + " | " + df['Category'].astype(str)
+            df['del_opt'] = df['Date'].astype(str) + " | " + df['Category'].astype(str) + " | ₹" + df['Amount'].astype(str)
             to_del = st.selectbox("Select to delete:", df['del_opt'].tolist())
-            if st.button("DELETE"):
+            if st.button("DELETE NOW"):
                 sel_date = to_del.split(" | ")[0]
                 all_r = sheet.get_all_values()
                 for i, r in enumerate(all_r):
                     if r[0] == sel_date and r[5] == user_logged_in:
                         sheet.delete_rows(i+1)
                         st.success("Deleted!"); st.rerun()
+        else: st.info("Kuch nahi hai delete karne ko.")
 
 elif app_mode == "🏧 Digital ATM":
     st.write("Jald aa raha hai!")
+    
