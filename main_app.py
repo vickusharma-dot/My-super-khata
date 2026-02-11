@@ -11,89 +11,95 @@ try:
     client = gspread.authorize(creds)
     sheet = client.open("Vicku_khata data").sheet1
 except:
-    st.error("Sheet Connection Error!")
+    st.error("Sheet Error!")
 
-# --- APP CONFIG & CSS (Grid Fix) ---
 st.set_page_config(page_title="Vicky Hub", layout="centered")
 
+# --- CUSTOM CSS FOR BUTTONS ---
 st.markdown("""
     <style>
-    /* Buttons ko screen ke andar rakhne ka ilaaj */
-    div[data-testid="column"] {
-        width: 48% !important;
-        flex: 1 1 45% !important;
-        min-width: 45% !important;
-    }
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        justify-content: center !important;
-        gap: 5px !important;
-    }
-    .stButton>button {
+    .stButton > button {
         width: 100% !important;
-        height: 55px !important;
-        border-radius: 10px !important;
-        font-weight: bold !important;
+        height: 50px !important;
+        border-radius: 8px !important;
         border: 2px solid #4CAF50 !important;
-        font-size: 14px !important;
-        padding: 0px !important;
+        font-weight: bold !important;
     }
-    /* Mobile screen padding fix */
-    .block-container { padding: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR (Home, ATM etc Sab Kuch) ---
+if 'choice' not in st.session_state: st.session_state.choice = 'None'
+
+# --- SIDEBAR MENU ---
 app_mode = st.sidebar.radio("Main Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
 if app_mode == "🏠 Home":
     st.title("Welcome Vicky! 😎")
-    st.write("Bhai, ye tera digital adda hai. Sidebar se app select kar.")
-    st.info("Khata App: Paise ka hisab | ATM: Digital cash check")
+    st.info("Bhai, Sidebar se app chuno.")
 
 elif app_mode == "💰 Khata App":
-    st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    if 'v_choice' not in st.session_state: st.session_state.v_choice = 'None'
-
-    # --- 2x3 Grid Jo Screen ke Andar Rahega ---
-    c1, c2 = st.columns(2)
-    if c1.button("➕ Add"): st.session_state.v_choice = 'add'
-    if c2.button("🤝 Settle"): st.session_state.v_choice = 'set'
-
-    c3, c4 = st.columns(2)
-    if c3.button("📜 Hisab"): st.session_state.v_choice = 'hisab'
-    if c4.button("📊 Report"): st.session_state.v_choice = 'rep'
-
-    c5, c6 = st.columns(2)
-    if c5.button("🔍 Search"): st.session_state.v_choice = 'src'
-    if c6.button("🗑️ Delete"): st.session_state.v_choice = 'del'
+    # --- ASLI GRID (ST.COLUMNS WITHOUT STACKING) ---
+    # Mobile par 2 columns barabar dikhane ke liye empty space bypass
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button("➕ Add"): st.session_state.choice = 'add'
+        if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
+        if st.button("🔍 Search"): st.session_state.choice = 'src'
+    with c2:
+        if st.button("🤝 Settle"): st.session_state.choice = 'set'
+        if st.button("📊 Report"): st.session_state.choice = 'rep'
+        if st.button("🗑️ Delete"): st.session_state.choice = 'del'
 
     st.divider()
     
-    # Logic
-    val = st.session_state.v_choice
-    all_data = sheet.get_all_values()
-    df = pd.DataFrame(all_data[1:], columns=all_data[0]) if len(all_data) > 1 else pd.DataFrame()
+    # Data & Logic
+    val = st.session_state.choice
+    data = sheet.get_all_values()
+    df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
 
     if val == 'add':
-        with st.form("a"):
-            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Other"])
+        with st.form("a", clear_on_submit=True):
+            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Safar", "Other"])
             amt = st.number_input("Amount", 0.0)
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
                 st.success("Saved!"); st.rerun()
-    
-    elif val == 'hisab':
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        
+
     elif val == 'rep':
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            st.markdown(f"### 💰 Total: ₹{df['Amount'].sum()}")
+            # Yahan category wise total
+            summary = df.groupby('Category')['Amount'].sum()
+            for k, v in summary.items():
+                if v > 0: st.write(f"🔹 **{k}:** ₹{v}")
+            st.markdown(f"## **Total: ₹{df['Amount'].sum()}**")
+
+    elif val == 'hisab':
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+    elif val == 'set':
+        st.subheader("🤝 Udhar Settle")
+        if not df.empty and 'Status' in df.columns:
+            pending = df[df['Status'].str.strip() == 'Pending'].copy()
+            if not pending.empty:
+                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
+                pick = st.selectbox("Kiska udhar?", pending['disp'].tolist())
+                pay = st.number_input("Kitne paise mile?", min_value=0.0)
+                if st.button("SETTLE NOW"):
+                    row_info = pending[pending['disp'] == pick].iloc[0]
+                    cell = sheet.find(row_info['Date'])
+                    rem = float(row_info['Amount']) - pay
+                    if rem <= 0:
+                        sheet.update_cell(cell.row, 5, "Paid")
+                        sheet.update_cell(cell.row, 3, 0)
+                    else:
+                        sheet.update_cell(cell.row, 3, rem)
+                    st.success("Update Ho Gaya!"); st.rerun()
+            else: st.info("Koi pending nahi hai.")
 
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
-    st.write("Feature jald hi chalu hoga!")
+    st.write("Bhai, feature jald aayega!")
