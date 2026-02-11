@@ -21,7 +21,7 @@ except Exception as e:
 
 st.set_page_config(page_title="Vicky Hub", layout="centered", page_icon="💰")
 
-# --- 2. TERA ORIGINAL CSS (No Changes) ---
+# --- 2. TERA ORIGINAL CSS ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -81,17 +81,30 @@ if app_mode == "🏠 Home":
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
+    # Buttons row with RERUN logic
     with st.container(horizontal=True, horizontal_alignment="center"):
-        if st.button("➕ Add"): st.session_state.choice = 'add'
-        if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
-        if st.button("🔍 Search"): st.session_state.choice = 'src'
-        if st.button("🤝 Settle"): st.session_state.choice = 'set'
-        if st.button("📊 Report"): st.session_state.choice = 'rep'
-        if st.button("🗑️ Delete"): st.session_state.choice = 'del'
+        if st.button("➕ Add"): 
+            st.session_state.choice = 'add'
+            st.rerun()
+        if st.button("📜 Hisab"): 
+            st.session_state.choice = 'hisab'
+            st.rerun()
+        if st.button("🔍 Search"): 
+            st.session_state.choice = 'src'
+            st.rerun()
+        if st.button("🤝 Settle"): 
+            st.session_state.choice = 'set'
+            st.rerun()
+        if st.button("📊 Report"): 
+            st.session_state.choice = 'rep'
+            st.rerun()
+        if st.button("🗑️ Delete"): 
+            st.session_state.choice = 'del'
+            st.rerun()
 
     st.divider()
     
-    # --- FIXED DATA LOADING ---
+    # --- DATA LOADING ---
     raw = sheet.get_all_values()
     if len(raw) > 1:
         df = pd.DataFrame(raw[1:], columns=raw[0])
@@ -103,15 +116,18 @@ elif app_mode == "💰 Khata App":
     val = st.session_state.choice
 
     if val == 'add':
+        st.subheader("➕ Nayi Entry")
         with st.form("a", clear_on_submit=True):
             cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Party", "Shopping", "Other"])
             amt = st.number_input("Amount", 0.0)
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A", user_logged_in])
-                st.success("Saved! ✅"); st.rerun()
+                st.success("Saved! ✅")
+                st.rerun()
 
     elif val == 'hisab':
+        st.subheader("📜 Poora Hisab")
         if not df.empty: st.dataframe(df, use_container_width=True, hide_index=True)
         else: st.info("Khata khali hai.")
 
@@ -129,8 +145,8 @@ elif app_mode == "💰 Khata App":
             pending = df[df['Status'].str.strip() == 'Pending'].copy()
             if not pending.empty:
                 pending['disp'] = pending['Note'].astype(str) + " (₹" + pending['Amount'].astype(str) + ")"
-                pick = st.selectbox("Kaunsa?", pending['disp'].tolist())
-                pay = st.number_input("Amount received?", min_value=0.0)
+                pick = st.selectbox("Kaunsa Udhar?", pending['disp'].tolist())
+                pay = st.number_input("Kitne paise mile?", min_value=0.0)
                 if st.button("CONFIRM SETTLE"):
                     row_info = pending[pending['disp'] == pick].iloc[0]
                     all_r = sheet.get_all_values()
@@ -158,7 +174,7 @@ elif app_mode == "💰 Khata App":
         st.subheader("🗑️ Delete Entry")
         if not df.empty:
             df['del_opt'] = df['Date'].astype(str) + " | " + df['Category'].astype(str) + " | ₹" + df['Amount'].astype(str)
-            to_del = st.selectbox("Select to delete:", df['del_opt'].tolist())
+            to_del = st.selectbox("Select entry to delete:", df['del_opt'].tolist())
             if st.button("DELETE NOW"):
                 sel_date = to_del.split(" | ")[0]
                 all_r = sheet.get_all_values()
