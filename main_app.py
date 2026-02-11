@@ -13,9 +13,10 @@ try:
 except Exception as e:
     st.error(f"Sheet Connect Nahi Hui: {e}")
 
+# --- APP CONFIG ---
 st.set_page_config(page_title="Vicky Hub", layout="centered")
 
-# --- TERA WAHI CSS (LAYOUT NAHI HILEGA) ---
+# --- TERA CSS (LATEST BUTTON STYLE) ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -40,7 +41,7 @@ st.markdown("""
 if 'choice' not in st.session_state:
     st.session_state.choice = 'None'
 
-# --- SIDEBAR ---
+# --- SIDEBAR MENU ---
 app_mode = st.sidebar.radio("Main Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
 if app_mode == "🏠 Home":
@@ -50,7 +51,7 @@ if app_mode == "🏠 Home":
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    # TERA HORIZONTAL CONTAINER (BILKUL SAME)
+    # --- TERA WORKING HORIZONTAL CONTAINER ---
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add", key="btn_add"): st.session_state.choice = 'add'
         if st.button("📜 Hisab", key="btn_hisab"): st.session_state.choice = 'hisab'
@@ -61,16 +62,16 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # Safe Data Loading (Error Fix)
-    all_values = sheet.get_all_values()
-    if len(all_values) > 1:
-        df = pd.DataFrame(all_values[1:], columns=all_values[0])
+    # Safe Data Fetching
+    data_values = sheet.get_all_values()
+    if len(data_values) > 1:
+        df = pd.DataFrame(data_values[1:], columns=data_values[0])
     else:
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status"])
 
     val = st.session_state.choice
 
-    # 1. ADD
+    # 1. ADD ENTRY
     if val == 'add':
         with st.form("a", clear_on_submit=True):
             cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Safar", "Other"])
@@ -80,66 +81,56 @@ elif app_mode == "💰 Khata App":
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A"])
                 st.success("Entry Saved!"); st.rerun()
 
-    # 2. HISAB
+    # 2. HISAB (Full Table)
     elif val == 'hisab':
+        st.subheader("📜 Pura Hisab")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 3. SEARCH (WORKING)
+    # 3. SEARCH (Working)
     elif val == 'src':
+        st.subheader("🔍 Search Result")
         search_q = st.text_input("Naam ya Category likho...")
         if search_q:
-            filtered_df = df[df.apply(lambda row: search_q.lower() in row.astype(str).str.lower().values, axis=1)]
-            st.dataframe(filtered_df, use_container_width=True)
+            res = df[df.apply(lambda r: search_q.lower() in r.astype(str).str.lower().values, axis=1)]
+            if not res.empty: st.dataframe(res, use_container_width=True, hide_index=True)
+            else: st.warning("Kuch nahi mila!")
 
-    # 4. SETTLE
+    # 4. SETTLE (Update Logic)
     elif val == 'set':
+        st.subheader("🤝 Udhar Settle")
         if not df.empty and "Status" in df.columns:
-            pending = df[df['Status'] == 'Pending'].copy()
+            pending = df[df['Status'].str.strip() == 'Pending'].copy()
             if not pending.empty:
-                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
+                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'].astype(str) + ")"
                 pick = st.selectbox("Kiska settle karna hai?", pending['disp'].tolist())
-                pay = st.number_input("Kitne mile?", 0.0)
-                if st.button("CONFIRM SETTLE"):
-                    row_idx = df[df['Note'] + " (₹" + df['Amount'] + ")" == pick].index[0] + 2
-                    rem = float(df.iloc[row_idx-2]['Amount']) - pay
+                pay = st.number_input("Kitne paise mile?", 0.0)
+                if st.button("SETTLE NOW"):
+                    match = df[df['Note'] + " (₹" + df['Amount'].astype(str) + ")" == pick]
+                    row_idx = match.index[0] + 2
+                    rem = float(match.iloc[0]['Amount']) - pay
                     if rem <= 0:
                         sheet.update_cell(row_idx, 5, "Paid")
                         sheet.update_cell(row_idx, 3, "0")
                     else:
                         sheet.update_cell(row_idx, 3, str(rem))
-                    st.success("Done!"); st.rerun()
-            else: st.info("Sab clear hai!")
+                    st.success("Update Ho Gaya!"); st.rerun()
+            else: st.info("Koi pending nahi hai.")
 
-    # 5. REPORT (FIXED KEYERROR)
+    # 5. REPORT (FIXED AMOUNT ERROR)
     elif val == 'rep':
+        st.subheader("📊 Summary Report")
         if not df.empty:
-            # Amount ko number mein badalne ka pakka ilaaj (Error nahi aayega)
+            # Amount ko number mein badalne ka ilaaj taaki Report kaam kare
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            
-            # Category wise total
             summary = df.groupby('Category')['Amount'].sum()
-            
-            st.subheader("📊 Kharcha Report")
             for k, v in summary.items():
-                if v > 0:
-                    st.write(f"🔹 **{k}:** ₹{v:,.0f}")
-            
+                if v > 0: st.write(f"🔹 **{k}:** ₹{v:,.0f}")
             st.divider()
-            # Grand Total
             st.markdown(f"## **Total Kharcha: ₹{df['Amount'].sum():,.0f}**")
-        else:
-            st.info("Bhai, abhi sheet mein koi data nahi hai!")
-            
+        else: st.info("Data nahi hai bhai!")
 
-    # 6. DELETE (WORKING)
+    # 6. DELETE (Working)
     elif val == 'del':
-        if len(all_values) > 1:
-            st.warning(f"Delete Last Entry: {all_values[-1]}")
-            if st.button("DELETE PERMANENTLY"):
-                sheet.delete_rows(len(all_values))
-                st.error("Entry Gayab!"); st.session_state.choice = 'None'; st.rerun()
-
-elif app_mode == "🏧 Digital ATM":
-    st.title("🏧 Digital ATM")
-    st.write("Jald aa raha hai...")
-    
+        st.subheader("🗑️ Delete Last")
+        if len(data_values) > 1
+                    
