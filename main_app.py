@@ -112,12 +112,24 @@ elif app_mode == "💰 Khata App":
 
     # 5. REPORT (FIXED KEYERROR)
     elif val == 'rep':
-        if not df.empty and "Amount" in df.columns:
+        if not df.empty:
+            # Amount ko number mein badalne ka pakka ilaaj (Error nahi aayega)
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            total = df['Amount'].sum()
-            st.metric("KUL KHARCHA", f"₹{total:,.0f}")
-            st.bar_chart(df.groupby('Category')['Amount'].sum())
-        else: st.warning("Abhi koi data nahi hai.")
+            
+            # Category wise total
+            summary = df.groupby('Category')['Amount'].sum()
+            
+            st.subheader("📊 Kharcha Report")
+            for k, v in summary.items():
+                if v > 0:
+                    st.write(f"🔹 **{k}:** ₹{v:,.0f}")
+            
+            st.divider()
+            # Grand Total
+            st.markdown(f"## **Total Kharcha: ₹{df['Amount'].sum():,.0f}**")
+        else:
+            st.info("Bhai, abhi sheet mein koi data nahi hai!")
+            
 
     # 6. DELETE (WORKING)
     elif val == 'del':
