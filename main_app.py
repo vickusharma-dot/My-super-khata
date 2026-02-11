@@ -132,5 +132,13 @@ elif app_mode == "💰 Khata App":
     # 6. DELETE (Working)
     elif val == 'del':
         st.subheader("🗑️ Delete Last")
-        if len(data_values) > 1
-                    
+        if len(data_values) > 1:
+            st.warning(f"Kya aap is entry ko hatana chahte hain? \n\n {data_values[-1]}")
+            if st.button("HAAN, DELETE KARO"):
+                sheet.delete_rows(len(data_values))
+                st.error("Entry Deleted!"); st.session_state.choice = 'None'; st.rerun()
+
+elif app_mode == "🏧 Digital ATM":
+    st.title("🏧 Digital ATM")
+    st.write("Bhai, ye feature jald aayega!")
+    
