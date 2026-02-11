@@ -50,10 +50,10 @@ if st.session_state.user is None:
                 user_sheet.append_row([u_input, p_input])
                 st.session_state.user = u_input
                 st.rerun()
-        else: st.warning("Naam aur 4-digit PIN (Sirf numbers) dalo!")
+        else: st.warning("Naam aur 4-digit PIN dalo!")
     st.stop()
 
-# --- 4. APP NAVIGATION ---
+# --- 4. NAVIGATION ---
 user_logged_in = st.session_state.user
 is_admin = (user_logged_in == "vicky786")
 
@@ -65,12 +65,28 @@ if st.sidebar.button("Logout 🚪"):
 
 # --- 5. HOME PAGE ---
 if app_mode == "🏠 Home":
-    st.title(f"Ram Ram, {user_logged_in.upper()}! 🙏")
-    st.info("👈 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
+    # Simple & Clean Welcome
+    st.title(f"Welcome, {user_logged_in.upper()}! ✨")
+    
+    st.success("""
+    💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!
+    """)
+
+    st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
+    
     st.markdown("---")
+    
     st.markdown("### 🌟 Support Vicky Hub")
-    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app hai: https://vicky-khata.streamlit.app"
-    st.markdown(f'<a href="whatsapp://send?text={share_msg}" style="background-color: #25D366; color: white; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">📢 WhatsApp par Share Karein</a>', unsafe_allow_html=True)
+    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein aur unhe bhi iske baare mein batayein! Aapka support hi meri taqat hai.")
+    
+    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app hai, tu bhi use kar: https://vicky-khata.streamlit.app"
+    st.markdown(f"""
+        <a href="whatsapp://send?text={share_msg}" data-action="share/whatsapp/share" 
+           style="background-color: #25D366; color: white; padding: 12px 20px; 
+                  text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
+           📢 WhatsApp par Share Karein
+        </a>
+    """, unsafe_allow_html=True)
 
 # --- 6. KHATA APP ---
 elif app_mode == "💰 Khata App":
@@ -87,12 +103,10 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
 
-    # Load Data with Privacy Filter
     all_rows = data_sheet.get_all_values()
     if len(all_rows) > 1:
         headers = [h.strip() for h in all_rows[0]]
         full_df = pd.DataFrame(all_rows[1:], columns=headers)
-        # Filter for current user or admin
         df = full_df if is_admin else full_df[full_df['User'] == user_logged_in]
     else:
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status", "User"])
@@ -103,20 +117,11 @@ elif app_mode == "💰 Khata App":
         with st.form("add_form", clear_on_submit=True):
             cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar Diya", "Party", "Shopping", "Other"])
             amt = st.number_input("Amount", min_value=1.0)
-            note = st.text_input("Kisko diya / Note")
+            note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
                 status = "Pending" if cat == "Udhar Diya" else "N/A"
                 data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, status, user_logged_in])
                 st.success("Save ho gaya!"); st.rerun()
-
-    elif val == 'hisab':
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-    elif val == 'src':
-        q = st.text_input("Dhoondo (Note ya Category):")
-        if q:
-            res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
-            st.dataframe(res, use_container_width=True)
 
     elif val == 'set':
         # Partial Payment Logic: 500 -> 200 = 300 Balance
@@ -128,23 +133,22 @@ elif app_mode == "💰 Khata App":
                     received = st.number_input(f"Kitna wapas mila?", min_value=0.0, max_value=float(row['Amount']), key=f"inp_{i}")
                     if st.button("Update Karein", key=f"upd_{i}"):
                         if received > 0:
-                            # 1. Purani row index nikalo (full_df index + 2)
                             actual_idx = full_df.index[full_df.index == i].tolist()[0] + 2
                             total_amt = float(row['Amount'])
-                            
                             if received == total_amt:
                                 data_sheet.update_cell(actual_idx, 5, "Paid ✅")
                                 st.success("Pura Udhar Settle!")
                             else:
                                 remaining = total_amt - received
-                                # Purane ko 'Partially Paid' mark karo
                                 data_sheet.update_cell(actual_idx, 5, f"Paid ₹{received}")
-                                # Nayi row bache hue amount ke liye
                                 data_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), "Udhar Diya", str(remaining), f"{row['Note']} (Baki)", "Pending", user_logged_in])
                                 st.warning(f"₹{received} mil gaye. ₹{remaining} baki hain.")
                             st.rerun()
-                        else: st.error("0 se zyada amount dalo bhai!")
-        else: st.info("Bhai, koi udhar baki nahi hai! 😎")
+                        else: st.error("Amount dalo!")
+        else: st.info("Sab Paisa Vasool Hai! 😎")
+
+    elif val == 'hisab':
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
     elif val == 'rep':
         if not df.empty:
@@ -155,3 +159,4 @@ elif app_mode == "💰 Khata App":
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
     st.write("Vicky bhai, ispe kaam chal raha hai. Jald update milega!")
+                                                     
