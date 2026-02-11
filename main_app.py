@@ -21,24 +21,10 @@ try:
 except Exception as e:
     st.error(f"Sheet Error: {e}")
 
-# --- APP CONFIG & PWA LOGIC ---
+# --- APP CONFIG & PWA ---
 st.set_page_config(page_title="Vicky Hub", layout="centered", page_icon="💰")
 
-# Ye script browser ko batati hai ki app install karne ka option dikhaye
-components.html(
-    """
-    <script>
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      console.log('App install prompt ready');
-    });
-    </script>
-    """,
-    height=0,
-)
-
-# --- CSS (LAYOUT SAFE) ---
+# --- CSS STYLE ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -46,7 +32,7 @@ st.markdown("""
         margin: 4px 6px !important; border-radius: 10px !important;
         border: 2px solid #4CAF50 !important; font-weight: bold !important;
     }
-    section.main > div.block-container { overflow-x: hidden !important; padding-top: 1.5rem !important; }
+    section.main > div.block-container { padding-top: 1.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,12 +62,12 @@ if st.session_state.user is None:
                 st.session_state.user = u_input
                 st.rerun()
         else:
-            st.warning("Username aur 4-digit PIN dalo!")
+            st.warning("Naam aur 4-digit PIN dalo!")
     st.stop()
 
 # --- MAIN APP ---
 user_logged_in = st.session_state.user
-is_admin = (user_logged_in == "vicky786")
+is_admin = (user_logged_in == "vicky786") # Secret Master Key
 
 if st.sidebar.button("Logout 🚪"):
     st.session_state.user = None
@@ -92,15 +78,24 @@ app_mode = st.sidebar.radio("Menu", ["🏠 Home", "💰 Khata App", "🏧 Digita
 if app_mode == "🏠 Home":
     st.title(f"Ram Ram, {user_logged_in.upper()}! 🙏")
     
-    # INSTALL TIP FOR USERS
-    st.success("💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!")
-
-    st.markdown("""
-    ### 📢 Naya Kya Hai?
-    * **📲 Smart Install:** Ab browser khud install karne ka option dega.
-    * **🎉 Party & Shopping:** Nayi categories add ho gayi hain.
-    * **🔐 My Privacy:** Aapka data sirf aapke PIN se khulega.
-    """)
+    st.info("👈 **Shuru karein:** Sidebar (teen line) se 'Khata App' select karein.")
+    
+    # SHARE & SUPPORT SECTION
+    st.markdown("---")
+    st.markdown("### 🌟 Support Vicky Hub")
+    st.write("Bhai, agar meri mehnat achi lagi ho toh doston ke sath share zaroor karein!")
+    
+    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app hai, tu bhi use kar: https://vicky-khata.streamlit.app"
+    st.markdown(f"""
+        <a href="whatsapp://send?text={share_msg}" data-action="share/whatsapp/share" 
+           style="background-color: #25D366; color: white; padding: 12px 20px; 
+                  text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
+           📢 WhatsApp par Share Karein
+        </a>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.success("💡 **Tip:** Is app ko Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install' ya 'Add to Home Screen' karein!")
 
 elif app_mode == "💰 Khata App":
     st.markdown(f"<h3 style='text-align: center;'>📊 {user_logged_in.upper()} KA KHATA</h3>", unsafe_allow_html=True)
@@ -128,7 +123,7 @@ elif app_mode == "💰 Khata App":
     val = st.session_state.choice
 
     if val == 'add':
-        with st.form("a", clear_on_submit=True):
+        with st.form("add_form", clear_on_submit=True):
             cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Party", "Shopping", "Other"])
             amt = st.number_input("Amount", 0.0)
             note = st.text_input("Note")
@@ -142,24 +137,21 @@ elif app_mode == "💰 Khata App":
     elif val == 'rep':
         if not df.empty:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            st.metric("TOTAL", f"₹{df['Amount'].sum():,.0f}")
+            st.metric("TOTAL KHARCHA", f"₹{df['Amount'].sum():,.0f}")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
         else: st.info("Koi data nahi hai.")
 
-    elif val == 'src':
-        q = st.text_input("Dhoondo:")
-        if q:
-            res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
-            st.dataframe(res, use_container_width=True)
-
     elif val == 'del':
         if not df.empty:
-            st.warning("Delete karein?")
+            st.warning("Aakhri entry delete karein?")
             if st.button("HAAN"):
                 if all_data[-1][-1] == user_logged_in:
                     data_sheet.delete_rows(len(all_data))
                     st.error("Deleted!"); st.session_state.choice = 'None'; st.rerun()
+                else:
+                    st.warning("Aap sirf apni sabse aakhri entry hi delete kar sakte hain.")
 
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
-    st.write("Vicky bhai, ispe kaam baaki hai...")
+    st.write("Bhai, ispe kaam baaki hai... Stay tuned!")
+    
