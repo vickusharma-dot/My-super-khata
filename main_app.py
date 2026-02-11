@@ -11,83 +11,80 @@ try:
     client = gspread.authorize(creds)
     sheet = client.open("Vicku_khata data").sheet1
 except:
-    st.error("Sheet Connect Nahi Hui!")
+    st.error("Sheet error!")
 
 st.set_page_config(page_title="Vicky Khata", layout="centered")
 
-# --- CUSTOM CSS FOR REAL GRID ---
+# --- FORCED CSS GRID (ISSE PAKKA 2 COLUMNS DIKHENGE) ---
 st.markdown("""
     <style>
-    /* Buttons ko bada aur touch-friendly banane ke liye */
-    div.stButton > button {
+    /* Buttons ko side-by-side lane ke liye */
+    div[data-testid="column"] {
+        width: 48% !important;
+        flex: 1 1 45% !important;
+        min-width: 45% !important;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+    }
+    .stButton>button {
         width: 100% !important;
-        height: 55px !important;
-        border-radius: 10px !important;
+        height: 60px !important;
+        border-radius: 12px !important;
         font-weight: bold !important;
         border: 2px solid #4CAF50 !important;
-        margin-bottom: -10px;
+        background-color: white !important;
     }
-    /* Mobile screen padding fix */
-    .main .block-container { padding: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-if 'choice' not in st.session_state: st.session_state.choice = 'None'
+if 'v_choice' not in st.session_state: st.session_state.v_choice = 'None'
 
 st.markdown("<h2 style='text-align: center; color: #4CAF50;'>📊 VICKY KHATA</h2>", unsafe_allow_html=True)
 
-# --- 2x2 TABLE GRID (No more out of screen) ---
-# Row 1
+# --- 2x3 GRID LAYOUT ---
 c1, c2 = st.columns(2)
-with c1:
-    if st.button("➕ Add"): st.session_state.choice = 'add'
-with c2:
-    if st.button("🤝 Settle"): st.session_state.choice = 'set'
+if c1.button("➕ Add"): st.session_state.v_choice = 'add'
+if c2.button("🤝 Settle"): st.session_state.v_choice = 'set'
 
-# Row 2
 c3, c4 = st.columns(2)
-with c3:
-    if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
-with c4:
-    if st.button("📊 Report"): st.session_state.choice = 'rep'
+if c3.button("📜 Hisab"): st.session_state.v_choice = 'hisab'
+if c4.button("📊 Report"): st.session_state.v_choice = 'rep'
 
-# Niche choti buttons for extra tasks
 c5, c6 = st.columns(2)
-with c5:
-    if st.button("🔍 Search"): st.session_state.choice = 'src'
-with c6:
-    if st.button("🗑️ Delete"): st.session_state.choice = 'del'
+if c5.button("🔍 Search"): st.session_state.v_choice = 'src'
+if c6.button("🗑️ Delete"): st.session_state.v_choice = 'del'
 
 st.divider()
 
-# --- LOGIC ---
-val = st.session_state.choice
+# --- LOGIC SECTIONS ---
+choice = st.session_state.v_choice
 data = sheet.get_all_values()
 df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
 
-if val == 'add':
+if choice == 'add':
     with st.form("a", clear_on_submit=True):
         cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Other"])
         amt = st.number_input("Amount", 0.0)
         note = st.text_input("Note")
         if st.form_submit_button("SAVE"):
-            if amt > 0:
-                sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
-                st.success("Save Ho Gaya!"); st.rerun()
+            sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, amt, note, "Pending" if cat=="Udhar" else "N/A"])
+            st.success("Save Ho Gaya!"); st.rerun()
 
-elif val == 'rep':
+elif choice == 'rep':
     if not df.empty:
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
         st.markdown(f"## **Total: ₹{df['Amount'].sum()}**")
         summary = df.groupby('Category')['Amount'].sum()
         for k, v in summary.items():
-            if v > 0: st.write(f"🔹 {k}: ₹{v}")
+            if v > 0: st.write(f"🔹 **{k}:** ₹{v}")
 
-elif val == 'hisab':
+elif choice == 'hisab':
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-elif val == 'del':
+elif choice == 'del':
     if len(data) > 1:
         sheet.delete_rows(len(data))
-        st.warning("Last Entry Deleted!"); st.session_state.choice = 'None'; st.rerun()
-        
+        st.warning("Last Entry Deleted!"); st.session_state.v_choice = 'None'; st.rerun()
