@@ -17,25 +17,26 @@ try:
         user_sheet = main_sheet.add_worksheet(title="Users", rows="100", cols="2")
         user_sheet.append_row(["Username", "PIN"])
 except Exception as e:
-    st.error("Sheet Error!")
+    st.error("Sheet Connection Error!")
 
 st.set_page_config(page_title="Vicky Hub", layout="centered")
 
-# --- CSS FOR HORIZONTAL BUTTONS ---
+# --- CUSTOM CSS (Secret Sauce for Horizontal Buttons) ---
 st.markdown("""
     <style>
     .stButton > button {
         width: auto !important; min-width: 95px !important; height: 50px !important;
         margin: 4px 6px !important; padding: 0 12px !important;
         font-size: 14px !important; border-radius: 10px !important;
-        border: 2px solid #4CAF50 !important; font-weight: bold !important;
-        white-space: nowrap !important;
+        border: 2px solid #28a745 !important; font-weight: bold !important;
+        white-space: nowrap !important; color: #28a745 !important;
     }
+    .stButton > button:hover { background-color: #28a745 !important; color: white !important; }
     section.main > div.block-container { overflow-x: hidden !important; padding-top: 1.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGIN ---
+# --- LOGIN SYSTEM ---
 if 'user' not in st.session_state: st.session_state.user = None
 if st.session_state.user is None:
     st.title("🔐 Vicky Hub Login")
@@ -61,12 +62,24 @@ user_logged_in = st.session_state.user
 if 'choice' not in st.session_state: st.session_state.choice = 'None'
 app_mode = st.sidebar.radio("Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
+# --- HOME PAGE (Restored All Lines) ---
 if app_mode == "🏠 Home":
     st.title(f"Welcome {user_logged_in.upper()}! 😎")
-    st.info("Bhai, Sidebar se 'Khata App' select karo.")
+    
+    st.success("💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!")
+    
+    st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
+    
+    st.markdown("---")
+    st.markdown("### 🌟 Support Vicky Hub")
+    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein! Aapka support hi meri taqat hai.")
+    
+    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app: https://vicky-khata.streamlit.app"
+    st.markdown(f'<a href="whatsapp://send?text={share_msg}" style="background-color: #25D366; color: white; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">📢 WhatsApp Share</a>', unsafe_allow_html=True)
 
+# --- KHATA APP ---
 elif app_mode == "💰 Khata App":
-    st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>📊 VICKU KA KHATA</h3>", unsafe_allow_html=True)
     
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add"): st.session_state.choice = 'add'
@@ -78,17 +91,21 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # Load Data
-    data = sheet.get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
-    if not df.empty:
-        df = df[df['User'] == user_logged_in]
+    # Load Data with Error Handling (Fixes KeyError)
+    raw_data = sheet.get_all_values()
+    if len(raw_data) > 1:
+        df = pd.DataFrame(raw_data[1:], columns=raw_data[0])
+        # Ensure column 'User' exists before filtering
+        if 'User' in df.columns:
+            df = df[df['User'] == user_logged_in]
+    else:
+        df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status", "User"])
 
     val = st.session_state.choice
 
     if val == 'add':
         with st.form("a", clear_on_submit=True):
-            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Party", "Shopping", "Safar", "Other"])
+            cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Party", "Shopping", "Other"])
             amt = st.number_input("Amount", 0.0)
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
@@ -99,27 +116,27 @@ elif app_mode == "💰 Khata App":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
     elif val == 'set':
-        st.subheader("🤝 Udhar Settle (Partial)")
-        pending = df[df['Status'] == 'Pending'].copy()
-        if not pending.empty:
-            pending['options'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
-            choice = st.selectbox("Kaunsa Udhar?", pending['options'].tolist())
-            pay = st.number_input("Kitne wapas mile?", min_value=0.0)
-            if st.button("UPDATE BALANCE"):
-                row_data = pending[pending['options'] == choice].iloc[0]
-                all_rows = sheet.get_all_values()
-                # Find row index based on Date and User
-                for i, r in enumerate(all_rows):
-                    if r[0] == row_data['Date'] and r[5] == user_logged_in:
-                        new_amt = float(row_data['Amount']) - pay
-                        if new_amt <= 0:
-                            sheet.update_cell(i+1, 5, "Paid ✅")
-                            sheet.update_cell(i+1, 3, 0)
-                        else:
-                            sheet.update_cell(i+1, 3, new_amt)
-                            sheet.update_cell(i+1, 5, "Pending")
-                        st.success("Updated!"); st.rerun()
-        else: st.info("No Pending Udhar.")
+        st.subheader("🤝 Udhar Settle")
+        if not df.empty and 'Status' in df.columns:
+            pending = df[df['Status'] == 'Pending'].copy()
+            if not pending.empty:
+                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
+                pick = st.selectbox("Kiska udhar?", pending['disp'].tolist())
+                pay = st.number_input("Kitne paise mile?", min_value=0.0)
+                if st.button("UPDATE BALANCE"):
+                    row_data = pending[pending['disp'] == pick].iloc[0]
+                    # Find exact row in sheet
+                    all_rows = sheet.get_all_values()
+                    for idx, r in enumerate(all_rows):
+                        if r[0] == row_data['Date'] and r[5] == user_logged_in:
+                            rem = float(row_data['Amount']) - pay
+                            if rem <= 0:
+                                sheet.update_cell(idx+1, 5, "Paid ✅")
+                                sheet.update_cell(idx+1, 3, 0)
+                            else:
+                                sheet.update_cell(idx+1, 3, rem)
+                            st.success("Balance Updated!"); st.rerun()
+            else: st.info("Koi Pending Udhar nahi hai.")
 
     elif val == 'del':
         st.subheader("🗑️ Entry Delete Karein")
@@ -132,20 +149,21 @@ elif app_mode == "💰 Khata App":
                 for i, r in enumerate(all_rows):
                     if r[0] == selected_date and r[5] == user_logged_in:
                         sheet.delete_rows(i+1)
-                        st.success("Deleted!"); st.rerun()
-        else: st.info("No data to delete.")
+                        st.success("Entry Deleted!"); st.rerun()
+        else: st.info("Kuch delete karne ke liye nahi hai.")
 
     elif val == 'rep':
-        if not df.empty:
+        if not df.empty and 'Amount' in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
             st.metric("Total Kharcha", f"₹{df['Amount'].sum():,.0f}")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
 
     elif val == 'src':
-        q = st.text_input("Search (Note/Category):")
+        q = st.text_input("Search Anything:")
         if q:
             res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
             st.dataframe(res, use_container_width=True)
 
 elif app_mode == "🏧 Digital ATM":
-    st.write("Jald aa raha hai!")
+    st.title("🏧 Digital ATM")
+    st.write("Bhai, feature jald aayega!")
