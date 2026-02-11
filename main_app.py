@@ -16,7 +16,7 @@ except Exception as e:
 # --- APP CONFIG ---
 st.set_page_config(page_title="Vicky Hub", layout="centered")
 
-# --- TERA CSS (LATEST BUTTON STYLE) ---
+# --- TERA CSS (LATEST BUTTON STYLE - LAYOUT SAFE) ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -62,11 +62,14 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # Safe Data Fetching
+    # --- SAFE DATA FETCHING ---
     data_values = sheet.get_all_values()
     if len(data_values) > 1:
-        df = pd.DataFrame(data_values[1:], columns=data_values[0])
+        # Columns ke naam ekdum clean kar rahe hain (Space wagera hatane ke liye)
+        cols = [c.strip() for c in data_values[0]]
+        df = pd.DataFrame(data_values[1:], columns=cols)
     else:
+        # Agar sheet khali hai toh default columns
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status"])
 
     val = st.session_state.choice
@@ -81,12 +84,12 @@ elif app_mode == "💰 Khata App":
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A"])
                 st.success("Entry Saved!"); st.rerun()
 
-    # 2. HISAB (Full Table)
+    # 2. HISAB
     elif val == 'hisab':
         st.subheader("📜 Pura Hisab")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 3. SEARCH (Working)
+    # 3. SEARCH
     elif val == 'src':
         st.subheader("🔍 Search Result")
         search_q = st.text_input("Naam ya Category likho...")
@@ -95,7 +98,7 @@ elif app_mode == "💰 Khata App":
             if not res.empty: st.dataframe(res, use_container_width=True, hide_index=True)
             else: st.warning("Kuch nahi mila!")
 
-    # 4. SETTLE (Update Logic)
+    # 4. SETTLE
     elif val == 'set':
         st.subheader("🤝 Udhar Settle")
         if not df.empty and "Status" in df.columns:
@@ -116,24 +119,25 @@ elif app_mode == "💰 Khata App":
                     st.success("Update Ho Gaya!"); st.rerun()
             else: st.info("Koi pending nahi hai.")
 
-    # 5. REPORT (FIXED AMOUNT ERROR)
+    # 5. REPORT (FIXED FOR KEYERROR)
     elif val == 'rep':
         st.subheader("📊 Summary Report")
-        if not df.empty:
-            # Amount ko number mein badalne ka ilaaj taaki Report kaam kare
+        # Check kar rahe hain ki 'Amount' column hai ya nahi
+        if not df.empty and 'Amount' in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
             summary = df.groupby('Category')['Amount'].sum()
             for k, v in summary.items():
                 if v > 0: st.write(f"🔹 **{k}:** ₹{v:,.0f}")
             st.divider()
             st.markdown(f"## **Total Kharcha: ₹{df['Amount'].sum():,.0f}**")
-        else: st.info("Data nahi hai bhai!")
+        else:
+            st.warning("Abhi koi data ya 'Amount' column nahi mila.")
 
-    # 6. DELETE (Working)
+    # 6. DELETE
     elif val == 'del':
         st.subheader("🗑️ Delete Last")
         if len(data_values) > 1:
-            st.warning(f"Kya aap is entry ko hatana chahte hain? \n\n {data_values[-1]}")
+            st.warning(f"Kya aap aakhri entry hatana chahte hain? \n\n {data_values[-1]}")
             if st.button("HAAN, DELETE KARO"):
                 sheet.delete_rows(len(data_values))
                 st.error("Entry Deleted!"); st.session_state.choice = 'None'; st.rerun()
@@ -141,4 +145,3 @@ elif app_mode == "💰 Khata App":
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
     st.write("Bhai, ye feature jald aayega!")
-    
