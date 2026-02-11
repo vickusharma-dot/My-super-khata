@@ -21,7 +21,7 @@ except Exception as e:
 
 st.set_page_config(page_title="Vicky Hub", layout="centered", page_icon="💰")
 
-# --- 2. TERA WALA CSS (Bilkul Nahi Chheda) ---
+# --- 2. TERA WALA CSS (Same to Same) ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -77,21 +77,15 @@ if st.sidebar.button("Logout 🚪"):
 # --- 5. HOME PAGE ---
 if app_mode == "🏠 Home":
     st.title(f"Welcome {user_logged_in.upper()}! 😎")
-    st.success("💡 **Tip:** Is app ko phone ki Home Screen par lagane ke liye browser menu (3 dots ⋮) mein 'Install App' ya 'Add to Home Screen' par click karein!")
+    st.success("💡 **Tip:** 'Add to Home Screen' karein!")
     st.markdown("### 📢 Naya Kya Hai?")
-    st.markdown("* 📲 **Smart Install:** Browser ab install ka option dega.\n* 🔐 **My Privacy:** Aapka data sirf aapke PIN se khulega.")
-    st.info("👉 Sidebar se 'Khata App' chuno apna hisab dekhne ke liye.")
-    st.markdown("---")
-    st.markdown("### 🌟 Support Vicky Hub")
-    st.write("Bhai, agar meri ye mehnat achi lagi ho, toh apne doston ke sath share zaroor karein!")
-    share_msg = "Bhai, ye dekh Vicky Hub! Mast digital khata app: https://vicky-khata.streamlit.app"
-    st.markdown(f'<a href="whatsapp://send?text={share_msg}" style="background-color: #25D366; color: white; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">📢 WhatsApp Share</a>', unsafe_allow_html=True)
+    st.markdown("* 🔐 **Privacy:** Aapka data safe hai.\n* 🤝 **Partial Settle:** Hisab fix ho gaya.")
+    st.info("👉 Sidebar se 'Khata App' chuno.")
 
 # --- 6. KHATA APP ---
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    # TERA ASLI BUTTON VIEW (Horizontal Container)
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add"): st.session_state.choice = 'add'
         if st.button("📜 Hisab"): st.session_state.choice = 'hisab'
@@ -102,18 +96,17 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # --- ERROR FIXING START ---
-    data = sheet.get_all_values()
-    headers = ["Date", "Category", "Amount", "Note", "Status", "User"]
+    # --- SAFE DATA LOADING (Fixed KeyError) ---
+    raw_data = sheet.get_all_values()
+    cols = ["Date", "Category", "Amount", "Note", "Status", "User"]
     
-    # Agar sheet khali hai to empty dataframe banao headers ke saath
-    if len(data) > 1:
-        df = pd.DataFrame(data[1:], columns=data[0])
-        # Sirf current user ka data filter karo
+    if len(raw_data) > 1:
+        df = pd.DataFrame(raw_data[1:], columns=raw_data[0])
+        # Force column names to match exactly
         if 'User' in df.columns:
             df = df[df['User'] == user_logged_in]
     else:
-        df = pd.DataFrame(columns=headers)
+        df = pd.DataFrame(columns=cols)
 
     val = st.session_state.choice
 
@@ -123,27 +116,26 @@ elif app_mode == "💰 Khata App":
             amt = st.number_input("Amount", 0.0)
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
-                # Always append all 6 columns
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A", user_logged_in])
-                st.success("Saved! ✅"); st.rerun()
+                st.success("Saved! ✅")
+                st.rerun()
 
     elif val == 'hisab':
         if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            st.info("Abhi koi hisab nahi hai.")
+            st.info("Hisab khali hai.")
 
     elif val == 'set':
         st.subheader("🤝 Udhar Settle")
         if not df.empty and 'Status' in df.columns:
-            pending = df[df['Status'].str.strip() == 'Pending'].copy()
+            pending = df[df['Status'] == 'Pending'].copy()
             if not pending.empty:
                 pending['disp'] = pending['Note'] + " (₹" + pending['Amount'].astype(str) + ")"
-                pick = st.selectbox("Kaunsa Udhar?", pending['disp'].tolist())
-                pay = st.number_input("Kitne paise mile?", min_value=0.0)
+                pick = st.selectbox("Select Udhar:", pending['disp'].tolist())
+                pay = st.number_input("Received Amount", min_value=0.0)
                 if st.button("SETTLE NOW"):
                     row_info = pending[pending['disp'] == pick].iloc[0]
-                    # Direct Search in Sheet to avoid index issues
                     all_rows = sheet.get_all_values()
                     for idx, r in enumerate(all_rows):
                         if r[0] == row_info['Date'] and r[5] == user_logged_in:
@@ -153,24 +145,29 @@ elif app_mode == "💰 Khata App":
                                 sheet.update_cell(idx+1, 3, "0")
                             else:
                                 sheet.update_cell(idx+1, 3, str(rem))
-                            st.success("Updated! 💰"); st.rerun()
+                            st.success("Updated! 💰")
+                            st.rerun()
             else: st.info("Koi pending nahi hai.")
+        else: st.info("Data nahi hai.")
 
     elif val == 'del':
-        st.subheader("🗑️ Entry Delete")
-        if not df.empty:
-            df['del_opt'] = df['Date'] + " | " + df['Category'] + " | ₹" + df['Amount']
-            to_del = st.selectbox("Kaunsi entry?", df['del_opt'].tolist())
-            if st.button("CONFIRM DELETE"):
+        st.subheader("🗑️ Delete Entry")
+        if not df.empty and 'Date' in df.columns:
+            # Fixed KeyError for Delete (Screenshot 279111)
+            df['del_opt'] = df['Date'].astype(str) + " | " + df['Category'].astype(str) + " | ₹" + df['Amount'].astype(str)
+            to_del = st.selectbox("Select to delete:", df['del_opt'].tolist())
+            if st.button("DELETE"):
                 sel_date = to_del.split(" | ")[0]
                 all_rows = sheet.get_all_values()
                 for idx, r in enumerate(all_rows):
                     if r[0] == sel_date and r[5] == user_logged_in:
                         sheet.delete_rows(idx+1)
-                        st.success("Deleted! 🗑️"); st.rerun()
+                        st.success("Deleted! 🗑️")
+                        st.rerun()
         else: st.info("Kuch nahi hai delete karne ko.")
 
     elif val == 'rep':
+        # Fixed Report Error (Screenshot 279097)
         if not df.empty and 'Amount' in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
             st.metric("Total Kharcha", f"₹{df['Amount'].sum():,.0f}")
@@ -186,3 +183,4 @@ elif app_mode == "💰 Khata App":
 
 elif app_mode == "🏧 Digital ATM":
     st.write("Jald aa raha hai!")
+            
