@@ -73,15 +73,12 @@ app_mode = st.sidebar.radio("Main Menu", ["🏠 Home", "💰 Khata App", "🏧 D
 if app_mode == "🏠 Home":
     st.title(f"Welcome {user_logged_in.upper()}! 😎")
     st.success("💡 **Tip:** 'Add to Home Screen' karein!")
-    st.markdown("### 📢 Naya Kya Hai?")
-    st.markdown("* 🔐 **Privacy:** Aapka data safe hai.\n* 🤝 **Full Fix:** Saare buttons ab kaam karenge.")
     st.info("👉 Sidebar se 'Khata App' chuno.")
 
 # --- 6. KHATA APP ---
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    # Buttons row with RERUN logic
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add"): 
             st.session_state.choice = 'add'
@@ -104,12 +101,15 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # --- DATA LOADING ---
+    # --- FIXED DATA LOADING (Crucial Fix) ---
     raw = sheet.get_all_values()
     if len(raw) > 1:
-        df = pd.DataFrame(raw[1:], columns=raw[0])
+        # Clean columns names to remove hidden spaces
+        cols = [c.strip() for c in raw[0]]
+        df = pd.DataFrame(raw[1:], columns=cols)
+        # Force Clean User data
         if 'User' in df.columns:
-            df = df[df['User'] == user_logged_in]
+            df = df[df['User'].str.strip().str.lower() == user_logged_in.lower()]
     else:
         df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status", "User"])
 
@@ -123,13 +123,12 @@ elif app_mode == "💰 Khata App":
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A", user_logged_in])
-                st.success("Saved! ✅")
-                st.rerun()
+                st.success("Saved! ✅"); st.rerun()
 
     elif val == 'hisab':
         st.subheader("📜 Poora Hisab")
         if not df.empty: st.dataframe(df, use_container_width=True, hide_index=True)
-        else: st.info("Khata khali hai.")
+        else: st.info("Abhi koi data nahi hai.")
 
     elif val == 'src':
         st.subheader("🔍 Search")
@@ -141,6 +140,7 @@ elif app_mode == "💰 Khata App":
 
     elif val == 'set':
         st.subheader("🤝 Udhar Settle")
+        # Ensure 'Status' and 'Amount' exist
         if not df.empty and 'Status' in df.columns:
             pending = df[df['Status'].str.strip() == 'Pending'].copy()
             if not pending.empty:
@@ -151,7 +151,7 @@ elif app_mode == "💰 Khata App":
                     row_info = pending[pending['disp'] == pick].iloc[0]
                     all_r = sheet.get_all_values()
                     for i, r in enumerate(all_r):
-                        if r[0] == row_info['Date'] and r[5] == user_logged_in:
+                        if len(r) > 5 and r[0] == row_info['Date'] and r[5].strip().lower() == user_logged_in.lower():
                             rem = float(r[2]) - pay
                             if rem <= 0:
                                 sheet.update_cell(i+1, 5, "Paid ✅")
@@ -160,7 +160,7 @@ elif app_mode == "💰 Khata App":
                                 sheet.update_cell(i+1, 3, str(rem))
                             st.success("Updated!"); st.rerun()
             else: st.info("Koi Udhar Pending nahi hai.")
-        else: st.info("Abhi koi data nahi hai.")
+        else: st.info("Settle karne ke liye data nahi hai.")
 
     elif val == 'rep':
         st.subheader("📊 Report")
@@ -168,22 +168,21 @@ elif app_mode == "💰 Khata App":
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
             st.metric("Total Kharcha", f"₹{df['Amount'].sum():,.0f}")
             st.bar_chart(df.groupby('Category')['Amount'].sum())
-        else: st.warning("Report ke liye data nahi mila.")
+        else: st.warning("Report ke liye data nahi hai.")
 
     elif val == 'del':
         st.subheader("🗑️ Delete Entry")
         if not df.empty:
             df['del_opt'] = df['Date'].astype(str) + " | " + df['Category'].astype(str) + " | ₹" + df['Amount'].astype(str)
-            to_del = st.selectbox("Select entry to delete:", df['del_opt'].tolist())
+            to_del = st.selectbox("Select entry:", df['del_opt'].tolist())
             if st.button("DELETE NOW"):
                 sel_date = to_del.split(" | ")[0]
                 all_r = sheet.get_all_values()
                 for i, r in enumerate(all_r):
-                    if r[0] == sel_date and r[5] == user_logged_in:
+                    if len(r) > 5 and r[0] == sel_date and r[5].strip().lower() == user_logged_in.lower():
                         sheet.delete_rows(i+1)
                         st.success("Deleted!"); st.rerun()
-        else: st.info("Kuch nahi hai delete karne ko.")
+        else: st.info("Delete karne ke liye data nahi hai.")
 
 elif app_mode == "🏧 Digital ATM":
     st.write("Jald aa raha hai!")
-    
