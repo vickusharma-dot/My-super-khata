@@ -10,12 +10,12 @@ try:
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     sheet = client.open("Vicku_khata data").sheet1
-except:
-    st.error("Sheet Error!")
+except Exception as e:
+    st.error(f"Sheet Connect Nahi Hui: {e}")
 
 st.set_page_config(page_title="Vicky Hub", layout="centered")
 
-# --- TERA WAHI CSS (BILKUL SAME) ---
+# --- TERA WAHI CSS (LAYOUT NAHI HILEGA) ---
 st.markdown("""
     <style>
     .stButton > button {
@@ -40,7 +40,7 @@ st.markdown("""
 if 'choice' not in st.session_state:
     st.session_state.choice = 'None'
 
-# --- SIDEBAR MENU ---
+# --- SIDEBAR ---
 app_mode = st.sidebar.radio("Main Menu", ["🏠 Home", "💰 Khata App", "🏧 Digital ATM"])
 
 if app_mode == "🏠 Home":
@@ -50,7 +50,7 @@ if app_mode == "🏠 Home":
 elif app_mode == "💰 Khata App":
     st.markdown("<h3 style='text-align: center;'>📊 VICKY KHATA</h3>", unsafe_allow_html=True)
     
-    # --- TERA CONTAINER (UNCHANGED) ---
+    # TERA HORIZONTAL CONTAINER (BILKUL SAME)
     with st.container(horizontal=True, horizontal_alignment="center"):
         if st.button("➕ Add", key="btn_add"): st.session_state.choice = 'add'
         if st.button("📜 Hisab", key="btn_hisab"): st.session_state.choice = 'hisab'
@@ -61,12 +61,16 @@ elif app_mode == "💰 Khata App":
 
     st.divider()
     
-    # Data Fetching
-    val = st.session_state.choice
-    data = sheet.get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0]) if len(data) > 1 else pd.DataFrame()
+    # Safe Data Loading (Error Fix)
+    all_values = sheet.get_all_values()
+    if len(all_values) > 1:
+        df = pd.DataFrame(all_values[1:], columns=all_values[0])
+    else:
+        df = pd.DataFrame(columns=["Date", "Category", "Amount", "Note", "Status"])
 
-    # 1. ADD ENTRY
+    val = st.session_state.choice
+
+    # 1. ADD
     if val == 'add':
         with st.form("a", clear_on_submit=True):
             cat = st.selectbox("Category", ["Khana", "Petrol", "Udhar", "Safar", "Other"])
@@ -74,72 +78,56 @@ elif app_mode == "💰 Khata App":
             note = st.text_input("Note")
             if st.form_submit_button("SAVE"):
                 sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), cat, str(amt), note, "Pending" if cat=="Udhar" else "N/A"])
-                st.success("Saved!")
-                st.rerun()
+                st.success("Entry Saved!"); st.rerun()
 
-    # 2. HISAB (HISTORY)
+    # 2. HISAB
     elif val == 'hisab':
-        st.subheader("📜 Pura Hisab")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 3. SEARCH (NEW WORKING CODE)
+    # 3. SEARCH (WORKING)
     elif val == 'src':
-        st.subheader("🔍 Search Entry")
-        q = st.text_input("Note ya Category likho:")
-        if q:
-            res = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().values, axis=1)]
-            if not res.empty:
-                st.dataframe(res, use_container_width=True, hide_index=True)
-            else:
-                st.warning("Bhai, kuch nahi mila!")
+        search_q = st.text_input("Naam ya Category likho...")
+        if search_q:
+            filtered_df = df[df.apply(lambda row: search_q.lower() in row.astype(str).str.lower().values, axis=1)]
+            st.dataframe(filtered_df, use_container_width=True)
 
     # 4. SETTLE
     elif val == 'set':
-        st.subheader("🤝 Udhar Settle")
-        if not df.empty and 'Status' in df.columns:
-            pending = df[df['Status'].str.strip() == 'Pending'].copy()
+        if not df.empty and "Status" in df.columns:
+            pending = df[df['Status'] == 'Pending'].copy()
             if not pending.empty:
-                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'].astype(str) + ")"
-                pick = st.selectbox("Kiska udhar?", pending['disp'].tolist())
-                pay = st.number_input("Kitne paise mile?", min_value=0.0)
-                if st.button("SETTLE NOW"):
-                    row_info = pending[pending['disp'] == pick].iloc[0]
-                    cell = sheet.find(row_info['Date'])
-                    rem = float(row_info['Amount']) - pay
+                pending['disp'] = pending['Note'] + " (₹" + pending['Amount'] + ")"
+                pick = st.selectbox("Kiska settle karna hai?", pending['disp'].tolist())
+                pay = st.number_input("Kitne mile?", 0.0)
+                if st.button("CONFIRM SETTLE"):
+                    row_idx = df[df['Note'] + " (₹" + df['Amount'] + ")" == pick].index[0] + 2
+                    rem = float(df.iloc[row_idx-2]['Amount']) - pay
                     if rem <= 0:
-                        sheet.update_cell(cell.row, 5, "Paid")
-                        sheet.update_cell(cell.row, 3, 0)
+                        sheet.update_cell(row_idx, 5, "Paid")
+                        sheet.update_cell(row_idx, 3, "0")
                     else:
-                        sheet.update_cell(cell.row, 3, rem)
-                    st.success("Updated!")
-                    st.rerun()
-            else: st.info("Koi pending nahi hai.")
+                        sheet.update_cell(row_idx, 3, str(rem))
+                    st.success("Done!"); st.rerun()
+            else: st.info("Sab clear hai!")
 
-    # 5. REPORT
+    # 5. REPORT (FIXED KEYERROR)
     elif val == 'rep':
-        st.subheader("📊 Reports")
-        if not df.empty:
+        if not df.empty and "Amount" in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            summary = df.groupby('Category')['Amount'].sum()
-            for k, v in summary.items():
-                if v > 0: st.write(f"🔹 **{k}:** ₹{v:,.0f}")
-            st.markdown(f"## **Total: ₹{df['Amount'].sum():,.0f}**")
+            total = df['Amount'].sum()
+            st.metric("KUL KHARCHA", f"₹{total:,.0f}")
+            st.bar_chart(df.groupby('Category')['Amount'].sum())
+        else: st.warning("Abhi koi data nahi hai.")
 
-    # 6. DELETE (NEW WORKING CODE)
+    # 6. DELETE (WORKING)
     elif val == 'del':
-        st.subheader("🗑️ Delete Entry")
-        if len(data) > 1:
-            st.warning(f"Kya aap aakhri entry ko delete karna chahte hain?")
-            st.write(f"**Aakhri Entry:** {data[-1]}")
-            if st.button("HAAN, DELETE KARO"):
-                sheet.delete_rows(len(data))
-                st.error("Entry gayab!")
-                st.session_state.choice = 'None'
-                st.rerun()
-        else:
-            st.info("Bhai, sheet khali hai.")
+        if len(all_values) > 1:
+            st.warning(f"Delete Last Entry: {all_values[-1]}")
+            if st.button("DELETE PERMANENTLY"):
+                sheet.delete_rows(len(all_values))
+                st.error("Entry Gayab!"); st.session_state.choice = 'None'; st.rerun()
 
 elif app_mode == "🏧 Digital ATM":
     st.title("🏧 Digital ATM")
-    st.write("Bhai, feature jald aayega!")
+    st.write("Jald aa raha hai...")
     
