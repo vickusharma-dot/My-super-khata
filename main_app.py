@@ -149,4 +149,3 @@ elif app_mode == "💰 Khata App":
 
 elif app_mode == "🏧 Digital ATM":
     st.write("Jald aa raha hai!")
-                
